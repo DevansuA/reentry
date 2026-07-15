@@ -1,8 +1,9 @@
 {
-  "buildCommand": "pip3 install -e '.[all]' && npm --prefix web run build",
-  "outputDirectory": "web/.next",
+  "rootDirectory": "web",
+  "buildCommand": "npm run build:no-snapshot",
+  "installCommand": "npm install",
   "framework": "nextjs",
-  "installCommand": "npm --prefix web install",
+  "outputDirectory": ".next",
   "env": {
     "NEXT_PUBLIC_DEMO_MODE": "true",
     "NEXT_TELEMETRY_DISABLED": "1"
