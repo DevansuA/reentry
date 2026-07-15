@@ -78,6 +78,7 @@ def system_baseline_flat(conn, project):
 
 
 def system_reentry(conn, project):
+    capsule.run_housekeeping(conn, project)
     cap = capsule.generate(conn, project)
     contras = contradictions.contradictions_for_project(conn, project["id"])
     stale_ids = {c["claim_a"] for c in contras

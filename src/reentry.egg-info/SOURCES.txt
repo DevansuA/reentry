@@ -1,3 +1,4 @@
+LICENSE
 README.md
 pyproject.toml
 src/reentry/__init__.py
@@ -20,4 +21,12 @@ src/reentry.egg-info/dependency_links.txt
 src/reentry.egg-info/entry_points.txt
 src/reentry.egg-info/requires.txt
 src/reentry.egg-info/top_level.txt
+src/reentry/connectors/__init__.py
+src/reentry/connectors/calendar_ics.py
+src/reentry/connectors/fs_watcher.py
+src/reentry/connectors/github.py
+src/reentry/connectors/terminal.py
+tests/test_calendar_connector.py
+tests/test_connectors.py
+tests/test_github_connector.py
 tests/test_reentry.py

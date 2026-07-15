@@ -97,6 +97,10 @@ def resume(as_json):
     """Generate the Re-entry Capsule for this project."""
     conn = _conn()
     p = _project_or_die(conn)
+    # The CLI does housekeeping inline (single process, single connection, no
+    # concurrency issue). The API separates POST /sync (write) from GET /capsule
+    # (read-only) to avoid concurrent-writer lock contention.
+    capsule_mod.run_housekeeping(conn, p)
     cap = capsule_mod.generate(conn, p)
     if as_json:
         console.print_json(db.jdumps(cap))
@@ -258,6 +262,7 @@ def dashboard(out):
     from . import report
     conn = _conn()
     p = _project_or_die(conn)
+    capsule_mod.run_housekeeping(conn, p)
     cap = capsule_mod.generate(conn, p)
     path = report.write_html(conn, p, cap, out)
     console.print(f"[green]✓[/green] Dashboard written to {path}")
@@ -381,6 +386,7 @@ def demo(target):
     console.print(Panel(
         "[yellow]SYNTHETIC DEMO PROJECT[/yellow]: all events below are seeded, "
         "not real usage.", style="yellow"))
+    capsule_mod.run_housekeeping(conn, p)
     cap = capsule_mod.generate(conn, p)
     render_capsule(cap)
     console.print(f"\nDemo project directory: {p['root_path']}")

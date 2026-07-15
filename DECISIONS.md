@@ -69,6 +69,26 @@ causing `from mcp.server.fastmcp import FastMCP` to resolve to our own
 package) fixes import resolution. The `reentry` package is already installed
 via `pip install -e .` so no `sys.path` manipulation is needed in the server.
 
+**D18: Separate write path (POST /sync) from read path (GET /capsule) to fix
+the database lock crash.** Root cause: `capsule.generate()` called
+`gitsource.sync_commits()` and `actions_mod.propose_next_action()` on every
+GET /capsule. SQLite allows only one writer at a time; a second tab, a polling
+interval, or a CLI command colliding on GET /capsule caused
+`sqlite3.OperationalError: database is locked` even with WAL mode.
+
+Fix: `capsule.generate()` is now a pure-read function. All writes are in
+`capsule.run_housekeeping()`, called from a new `POST /api/sync` endpoint and
+from the CLI inline (single process, single connection, no concurrency issue).
+GET /capsule uses a read-only SQLite connection opened with `mode=ro` URI,
+which physically prevents any write through that handle. FastAPI endpoints
+receive per-request connections via `Depends(get_ro_conn)` or
+`Depends(get_rw_conn)`, closed at request end with no cross-thread sharing.
+
+Verified by: `test_capsule_get_uses_readonly_connection` (row counts unchanged
+after five GET /capsule calls), `test_capsule_get_readonly_connection_rejects_writes`
+(mode=ro raises on direct INSERT), and `test_capsule_concurrent_reads_no_lock_error`
+(ten reader threads plus one writer thread, zero OperationalError in all futures).
+
 **D13: Screenshots captured with Playwright headless Chromium.** A Python
 script (`scripts/screenshots.py`) seeds the demo, starts both servers,
 captures five PNG files at 2x device scale ratio to `docs/assets/`, and shuts

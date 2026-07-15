@@ -1,11 +1,22 @@
 """Re-entry Capsule.
 
-The signature output. Generated from *current* derived state plus a live
-Git check; never only from stored memory. Every material statement
-carries evidence_ids, an inference label, and confidence. The optional
-LLM pass (llm.py) may rewrite the objective line for fluency, but every
-fact in the capsule comes from the deterministic pipeline; the model can
-never add claims.
+The signature output. Generated from current derived state plus a live Git
+check; never only from stored memory. Every material statement carries
+evidence_ids, an inference label, and confidence.
+
+Two entry points:
+
+  run_housekeeping(conn, project) -- write path. Infers checkpoints, syncs
+    git, reconciles contradictions, proposes the next action. Call this
+    through a read-write connection before calling generate().
+
+  generate(conn, project) -- pure read path. Assembles the capsule from
+    whatever state is in the DB right now. Works correctly with a read-only
+    connection; raises if called through one while housekeeping is True.
+
+The CLI `reentry resume` calls both inline (no change). The FastAPI GET
+/api/capsule endpoint calls generate() alone; housekeeping is triggered by
+POST /api/sync, which the frontend fires on load and on manual refresh.
 """
 
 from __future__ import annotations
@@ -37,16 +48,27 @@ def _item(text, evidence_ids=None, confidence=1.0, inference="observed", **extra
             "confidence": confidence, "inference": inference, **extra}
 
 
-def generate(conn, project: dict, run_reconcile: bool = True) -> dict:
-    pid = project["id"]
+def run_housekeeping(conn, project: dict, run_reconcile: bool = True) -> None:
+    """Run all write-side housekeeping for a project.
 
-    # 0. housekeeping: infer checkpoint if a session went stale, sync git,
-    #    reconcile contradictions, and (re)plan the next action.
+    Must be called through a read-write connection. The results (new events,
+    contradictions, proposed actions) are then available to generate().
+    """
+    pid = project["id"]
     state.infer_checkpoint_if_stale(conn, pid)
     gitsource.sync_commits(conn, project)
     if run_reconcile:
         contradictions_mod.reconcile(conn, pid)
     actions_mod.propose_next_action(conn, project)
+
+
+def generate(conn, project: dict) -> dict:
+    """Assemble the capsule from current DB state. Zero writes.
+
+    Safe to call through a read-only connection. If you need fresh data,
+    call run_housekeeping() first through a read-write connection.
+    """
+    pid = project["id"]
 
     ck = state.latest_checkpoint(conn, pid)
     ck_summary = db.jloads(ck["summary"]) if ck else {}
@@ -63,7 +85,7 @@ def generate(conn, project: dict, run_reconcile: bool = True) -> dict:
         objective = _item(g["text"], db.jloads(g["evidence_ids"]),
                           g["confidence"], g["inference_type"])
 
-    # 2. where things stand (live verification, not memory)
+    # 2. where things stand (live git check, not memory)
     stand = []
     if git.get("is_repo"):
         stand.append(_item(
@@ -88,7 +110,7 @@ def generate(conn, project: dict, run_reconcile: bool = True) -> dict:
         changed.append(_item(f"[{e['source']}/{e['event_type']}] {label}",
                              evidence_ids=[e["id"]]))
 
-    # 4. decisions and rationale (active only; superseded shown via contradictions)
+    # 4. decisions and rationale
     decisions = [
         _item(d["text"], db.jloads(d["evidence_ids"]), d["confidence"],
               d["inference_type"], rationale=d["rationale"],
@@ -103,7 +125,7 @@ def generate(conn, project: dict, run_reconcile: bool = True) -> dict:
         for b in state.claims_for_project(conn, pid, kind="blocker", status="active")
     ]
 
-    # 6. contradictions / stale assumptions
+    # 6. contradictions
     contradictions = [
         _item(c["explanation"], db.jloads(c["evidence_ids"]),
               classification=c["classification"])

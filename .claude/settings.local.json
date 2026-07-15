@@ -13,7 +13,14 @@
       "Bash(rm -rf /tmp/reentry-demo-proj)",
       "Bash(REENTRY_DB=/tmp/reentry-demo.db reentry demo --dir /tmp/reentry-demo-proj)",
       "Bash(NEXT_TELEMETRY_DISABLED=1 npm --prefix web run build)",
-      "Bash(reentry demo *)"
+      "Bash(reentry demo *)",
+      "Bash(npm run *)",
+      "Bash(file /Users/devanshuagarwal/Downloads/files-2/reentry/docs/assets/*.png)",
+      "Bash(REENTRY_DB=/tmp/reentry-demo.db reentry doctor *)",
+      "Bash(grep -rn \"sk-[A-Za-z0-9]\\\\{20,\\\\}\\\\|ghp_[A-Za-z0-9]\\\\{20,\\\\}\\\\|AKIA[0-9A-Z]\\\\{16\\\\}\\\\|BEGIN PRIVATE KEY\\\\|bearer [A-Za-z0-9]\\\\{20,\\\\}\" --include=\"*.py\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.md\" .)",
+      "Bash(git remote *)",
+      "Bash(gh api *)",
+      "Bash(gh run *)"
     ]
   }
 }

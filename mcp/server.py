@@ -83,6 +83,9 @@ def get_capsule(project_path: str = "") -> dict:
     """
     conn = _conn()
     p = _resolve_project(conn, project_path or None)
+    # MCP is a single-user tool call with one connection, so housekeeping is
+    # safe here (no concurrent writers). Run it before reading.
+    capsule_mod.run_housekeeping(conn, p)
     return capsule_mod.generate(conn, p)
 
 

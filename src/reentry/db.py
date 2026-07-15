@@ -135,14 +135,47 @@ def db_path() -> Path:
     return Path.home() / ".reentry" / "reentry.db"
 
 
+def _configure(conn: sqlite3.Connection, *, readonly: bool = False) -> None:
+    """Apply consistent PRAGMA settings to every connection the codebase opens."""
+    conn.row_factory = sqlite3.Row
+    if not readonly:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute("PRAGMA foreign_keys = ON")
+    else:
+        # Read-only connections cannot set WAL (that is itself a write).
+        # WAL was already established by the first write connection.
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 5000")
+
+
 def connect() -> sqlite3.Connection:
+    """Open a read-write connection.  Applies WAL + 5 s busy-timeout."""
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")  # allow concurrent readers + one writer
+    conn = sqlite3.connect(str(path), timeout=10)
+    _configure(conn)
     conn.executescript(SCHEMA)
+    return conn
+
+
+def connect_readonly() -> sqlite3.Connection:
+    """Open a read-only connection via the SQLite URI interface.
+
+    Any attempt to write through this connection raises sqlite3.OperationalError
+    immediately, which is the enforcement mechanism for the capsule GET path.
+
+    Ensures the DB file and schema exist first (a write connection initialises
+    them on first call, which is a one-time O(1) cost per new DB file).
+    """
+    path = db_path()
+    if not path.exists():
+        # First-time initialisation: create file and apply schema.
+        c = connect()
+        c.close()
+    uri = f"file:{path}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, timeout=10, check_same_thread=False)
+    _configure(conn, readonly=True)
     return conn
 
 
