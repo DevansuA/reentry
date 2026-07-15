@@ -38,3 +38,25 @@ and the CLI/dashboard** rather than shipped as separate half-features
 **D8 — Terminal capture is event-shaped but has no shell hook yet.** Test
 runs and commands enter via the ledger API (used by demo and the action
 executor); a zsh/bash preexec hook is roadmap work.
+
+**D9 — FastAPI + Next.js for the web layer, with CORS-based dev separation.**
+The server runs on port 8000 and the Next.js dev server on 3000; a rewrite
+rule in next.config.mjs proxies `/api/*` to the FastAPI server. This avoids
+bundling the Python server inside Next.js and keeps the two concerns separate.
+For production, `next build` produces a self-contained static bundle; the
+FastAPI server could serve it directly, but for the demo we run both as
+separate processes. No CDN links appear in any HTML — all runtime assets are
+local.
+
+**D10 — Synchronous FastAPI endpoints (not async).** The reentry Python
+modules use sqlite3, which is synchronous and not thread-safe across async
+contexts. Synchronous route functions run in FastAPI's thread-pool executor,
+which is the correct way to call blocking I/O. Switching to an async DB
+driver would require replacing sqlite3 with aiosqlite and rewriting all
+queries — too large a change for no user-visible benefit at current scale.
+
+**D11 — No Tailwind or component library in the web app.** The visual
+identity is a small, well-defined set of CSS variables (already defined in
+report.py). A plain globals.css that reuses those variables keeps the web app
+consistent with the existing HTML dashboard and avoids any build-time or CDN
+dependency on a UI framework.

@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pip3 show *)"
+      "Bash(pip3 show *)",
+      "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/server/tests)",
+      "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/mcp)",
+      "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/src/reentry/connectors)",
+      "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/hooks)",
+      "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/docs/assets)",
+      "Bash(PYTHONPATH=. python3 *)",
+      "Bash(npx next *)"
     ]
   }
 }
