@@ -39,7 +39,7 @@ mcp = FastMCP(
         "ReEntry maintains an append-only event ledger and builds a temporal "
         "model of project state from it. You can read the capsule, inspect "
         "evidence, list contradictions, and propose new actions. You cannot "
-        "approve or execute actions — that step is intentionally human-only."
+        "approve or execute actions; that step is intentionally human-only."
     ),
 )
 

@@ -1,45 +1,91 @@
 # ReEntry
 
-**Return to momentum.** An event-driven temporal operating system for interrupted knowledge work.
+You open a project you haven't touched in a week. Your notes say one thing, your last commit says another, and the test that was failing might already be fixed. Figuring out where you left off takes longer than the work itself.
 
-> Yesterday, you knew exactly what to do. ReEntry remembers why.
+ReEntry solves that. It maintains an append-only event ledger from your commits, terminal commands, notes, and decisions, then generates a Re-entry Capsule that tells you what was happening, what changed while you were away, and what to do first. Every sentence in the capsule links to the ledger event that supports it.
 
-ReEntry reconstructs the real execution state of an interrupted project — from commits, commands, decisions, notes, test results, and deadlines — and answers, in under a minute:
+## What it looks like
 
-**"What was happening here, what changed, and how do I regain momentum immediately?"**
+```
+$ reentry demo && reentry resume
 
-## What makes it different
+╭─────────────────────── RE-ENTRY CAPSULE ───────────────────────╮
+│ podcast-claim-labeler (demo)   context entropy: 50/100 (moderate) │
+╰──────────────────────── 2026-07-15T14:42:32+00:00 ─────────────╯
 
-Most AI memory systems retrieve documents and improvise a summary. ReEntry models a project's **execution state** explicitly:
+1. Last known objective
+   ● Switch to episode-level output and extend the label schema ‹ev:5b08…›
 
-- **Immutable event ledger** — every observation (commit, command, note, decision, test run, deadline) is an append-only event. SQLite triggers physically reject UPDATE/DELETE on the ledger.
-- **Derived, evidence-linked state** — decisions, blockers, deadlines, and questions are claims with `evidence_ids` back into the ledger, plus freshness (`observed_at`, `last_verified_at`), confidence, and an inference label (observed / inferred / user-corrected).
-- **Contradiction Radar** — deterministic reconciliation rules detect stale notes, superseded decisions, blockers resolved by later passing tests, and moved deadlines, classifying each (`stale_memory`, `likely_resolved`, `resolved`, `active`, `needs_human_judgment`). Nothing is deleted; supersession is recorded.
-- **Live verification** — the Re-entry Capsule checks the *current* Git branch, HEAD, and dirty state at generation time. Memory is never trusted where reality can be checked.
-- **Safe Action Loop** — propose → approve → execute → verify → record. Only allow-listed command prefixes ever execute (shell metacharacters rejected), non-read-only actions require explicit approval, and a verified action closes the loop by resolving the blocker it targeted.
-- **Deterministic-first, LLM-optional** — every fact comes from the ledger. An LLM (Anthropic or OpenAI, via env config) may polish phrasing only; its output is discarded if it introduces content not present in the input. Fully functional offline with no API key.
+2. Where things stand
+   ● On branch `master` at 0e58862 Accept strongly_supported in schema
+     validator; 1 uncommitted file(s).
+   ● Last checkpoint 46h ago (4 events in that session). ‹ev:5b08…›
+
+3. What changed
+   ● [git/commit] Accept strongly_supported in schema validator ‹ev:fee6…›
+
+4. Decisions
+   ● Use episode-level output rather than article-level output ‹ev:8c63…›
+     why: Supervisor requested per-episode aggregation in the week-2 meeting.
+
+5. Blockers
+   ● Schema validator rejects strongly_supported ‹ev:5dfa…›
+
+6. Contradictions and stale assumptions
+   ● Note predates a decision on the same topic and may no longer reflect
+     current intent.  classification: stale_memory  ‹ev:f401…,8c63…›
+
+7. Deadlines and commitments
+   ● Supervisor review of labelling pipeline   due 2026-07-18 ‹ev:0371…›
+
+8. Recommended next action
+   → Re-run the failing test behind blocker: "Schema validator rejects
+     strongly_supported"
+     pytest test_schema.py  ·  risk: LOCAL_REVERSIBLE
+     approve with: reentry approve eaa35a0dd482
+```
+
+The stale note, the contradicting decision, the active blocker, and the appropriate next action were all found deterministically from the ledger. No LLM was involved in producing this output.
+
+## Measured results
+
+| System | Checks passed | Applicable |
+|---|---|---|
+| ReEntry | **20** | **20** |
+| Recency baseline (scroll back through recent events) | 4 | 16 |
+| Flat-notes baseline (read everything, no reconciliation) | 4 | 16 |
+
+`make eval` regenerates these numbers from scratch and exits 1 on regression. Synthetic scenarios, deterministic graders, no LLM in any evaluation arm. The benchmark isolates the contribution of the temporal state model, not model quality. Full methodology: `docs/EVALUATION.md`.
 
 ## Quick start
 
 ```bash
-pip install -e .            # Python ≥3.10; deps: click, rich
-reentry demo                # seeded synthetic project — no credentials needed
+pip install -e .           # Python 3.10+; deps: click, rich
+reentry demo               # seeded project with 4 planted traps
 ```
 
-The demo prints a Re-entry Capsule showing ReEntry correctly concluding that an old note is stale, a later decision superseded it, the most recent failed test is the active blocker, and re-running that test is the smallest useful next action — every claim linked to ledger evidence ids.
-
-Then, in the printed demo directory:
+The demo produces the capsule above and seeds a real git repo you can poke at:
 
 ```bash
-reentry actions             # see the proposed action
-reentry approve <id>        # approve → execute → verify → blocker resolved
-reentry resume              # regenerate the capsule; entropy drops
-reentry replay              # full event timeline
-reentry dashboard           # self-contained HTML mission-control view
-reentry evidence <id>       # raw ledger event behind any claim
+reentry actions            # see the proposed action
+reentry approve <id>       # approve, run, verify; blocker is resolved
+reentry resume             # regenerate; entropy drops, new action proposed
+reentry replay             # chronological event timeline
+reentry dashboard          # write a self-contained HTML file (no CDN)
+reentry evidence <id>      # raw ledger event behind any ‹ev:…› chip
 ```
 
-Real usage on your own project:
+### Web UI
+
+```bash
+pip install -e . fastapi uvicorn    # server deps
+npm --prefix web install            # once
+make demo-full                      # seeds demo, starts servers, opens browser
+```
+
+The web app runs on `http://localhost:3000` and the API on `http://localhost:8000`. Evidence chips in the web UI open the same raw ledger JSON as `reentry evidence`. Approve and Reject buttons go through the same validation path as the CLI.
+
+### Real project
 
 ```bash
 cd ~/my-project
@@ -48,63 +94,76 @@ reentry start -o "finish the results section"
 reentry decide "Use episode-level output" -r "supervisor request"
 reentry block "schema validator rejects strongly_supported"
 reentry checkpoint
-# ...days later...
+# ... days later ...
 reentry resume
 ```
 
-If you forget to checkpoint, ReEntry infers one after 4h of inactivity and labels it **inferred**.
+If you forget to checkpoint, ReEntry infers one after 4 hours of inactivity and labels it **inferred** so you know it was not explicit.
 
-## Architecture
+## How it works
 
 ```
-Sources (git · terminal · user · docs)
-  → Redaction (secrets stripped BEFORE the immutable ledger)
-  → Event Ledger (append-only, idempotent by source_event_id)
-  → Derived Claims (evidence_ids, confidence, freshness, inference type)
-  → Contradiction Radar (deterministic reconciliation rules R1–R4)
-  → Context Entropy (explainable factor breakdown, visible weights)
-  → Planner (smallest valuable next action)
-  → Permission Layer (allow-list + risk class + approval)
-  → Execution → Verification → Ledger (closed loop)
-  → Surfaces: CLI capsule · HTML dashboard · JSON (proof mode)
+Sources: git, terminal hook, file watcher, GitHub, user input
+  Redaction (secrets stripped before the immutable ledger)
+  Event Ledger (append-only, idempotent by source event id)
+  Derived Claims (evidence_ids, confidence, freshness, inference type)
+  Contradiction Radar (rules R1-R4: supersession, stale notes, resolved
+    blockers, deadline drift)
+  Context Entropy (7 explainable weighted factors, each with a reduce hint)
+  Planner (smallest valuable next action)
+  Permission Layer (allow-list + risk class + human approval)
+  Execution, Verification, Ledger (closed loop)
+  Surfaces: CLI capsule, web app, HTML export, MCP server, JSON proof mode
 ```
 
-See `ARCHITECTURE.md` and `docs/THREAT_MODEL.md`.
+See `ARCHITECTURE.md` for the full design and `docs/THREAT_MODEL.md` for the security model.
 
-## Evaluation
+## What is and isn't built
 
-`make eval` runs a reproducible benchmark: 4 labelled scenarios (ordinary interruption, blocker resolved by a later test pass, moved deadline, prompt injection in an ingested document) × 3 architectures (recency baseline, flat-retrieval baseline, ReEntry) graded by deterministic checkers.
+**Implemented and tested:**
 
-Measured result (synthetic scenarios, no LLM in any arm — this isolates the state-model contribution, not model quality):
+- Append-only event ledger with SQLite triggers that reject UPDATE/DELETE. Idempotent ingestion by `source_event_id`.
+- Secret redaction (`redact.py`) before write, because immutability means a leaked secret could never be scrubbed afterwards.
+- Derived state: goals, decisions, blockers, notes, questions, deadlines, and commitments, each with evidence ids, freshness, confidence, and inference type (observed / inferred / user-corrected).
+- Contradiction Radar with four deterministic rules (R1 decision supersession, R2 stale note vs later decision, R3 blocker vs later passing test, R4 deadline drift).
+- Context entropy score with 7 weighted factors and per-factor reduction hints.
+- Safe action loop: proposed, approved, executed, verified, closed. Allow-list of command prefixes checked at proposal time and again at execution time. Shell metacharacters rejected. Execution via `subprocess` with `shell=False`, 120 s timeout, 4 KB output cap.
+- Re-entry Capsule with live git re-verification at generation time.
+- 16-command CLI.
+- Self-contained HTML dashboard (no CDN).
+- FastAPI server (`server/`) with 9 endpoints and an approve/reject UI surface.
+- Next.js web app (`web/`) preserving the visual identity (slate ground, avionics amber, phosphor cyan evidence chips). Works offline against the local DB; no CDN dependencies at runtime.
+- MCP server (`mcp/server.py`) exposing 5 read/propose tools. No approve or execute tool exists on the MCP surface; that step is human-only.
+- Terminal hook connector (opt-in zsh/bash) with spool-based ingestion and double-pass redaction.
+- Filesystem watcher connector using watchdog (path and timestamp only, never contents).
+- GitHub connector: read-only REST polling, idempotent by event id, approved reviews resolve "waiting on review" blockers.
+- 66 unit/integration tests (19 core + 14 connector + 10 MCP + 13 API + 10 GitHub).
 
-| system | passed | applicable checks |
-|---|---|---|
-| baseline_recency | 4 | 16 |
-| baseline_flat | 4 | 16 |
-| **reentry** | **20** | **20** |
+**Not implemented** (designed, not built): VS Code extension, Calendar connector, Gmail connector, embeddings layer, per-source retention controls, multi-user support. Each has a design sketch in `docs/CONNECTORS.md` and `ROADMAP.md`. No stub pretends to be live.
 
-Full tables: `docs/EVAL_RESULTS.md`. Scope and limitations: `docs/EVALUATION.md`. **No real-user outcomes are claimed.**
+## Privacy and security
 
-## Privacy & security
-
-- Local-first: single SQLite file under `~/.reentry/`, no network required.
-- Secrets (API keys, bearer tokens, private key blocks) are redacted **before** ingestion — mandatory because the ledger is append-only.
-- Ingested content is data, never instructions: an injected "run rm -rf /" inside a document can never reach the executor (tested).
-- Read-only Git access via an allow-listed subcommand set.
-- Full audit trail: every action transition is echoed into the ledger.
-
-## Honest status
-
-Implemented and tested: event ledger, claims/state, sessions/checkpoints (incl. inferred), contradiction radar (4 rules), context entropy, Re-entry Capsule, safe action loop, Git source, secret redaction, CLI (16 commands), HTML dashboard, demo, eval harness, 19 unit/integration tests.
-
-**Not implemented** (designed for, not built): web app, VS Code extension, GitHub/Calendar/Gmail connectors, MCP server, embeddings layer, file watcher, multi-user. See `ROADMAP.md` and `docs/CONNECTORS.md` — no stub pretends to be live.
+- Local-first: one SQLite file under `~/.reentry/`, no network calls except the optional LLM provider and GitHub sync (both opt-in).
+- Secrets (API keys, bearer tokens, private key blocks) are redacted before ingestion. The ledger is append-only, so there is no safe "scrub later" option.
+- Ingested text is data, never instructions: a prompt-injection string in a commit message, terminal command, or GitHub event cannot reach `actions.execute`. Three separate tests (core, terminal, GitHub) prove this.
+- Git access uses only an allow-listed subcommand set via `subprocess` with `shell=False`.
+- The MCP surface has no approve or execute tool. Approval is human-only.
+- Full threat model: `docs/THREAT_MODEL.md`.
 
 ## Development
 
 ```bash
-make setup   # install editable + dev deps
-make test    # pytest (19 tests)
-make eval    # benchmark → docs/EVAL_RESULTS.md
-make demo    # fresh seeded demo
-make lint    # pyflakes-level check via compileall + pyflakes if present
+make setup       # Python deps (also: pip install -e . fastapi uvicorn mcp watchdog)
+make setup-web   # Node deps (npm --prefix web install)
+make test        # 33 Python tests
+make test-server # 13 API tests (needs PYTHONPATH=.)
+make test-all    # all 56 Python tests
+make eval        # benchmark, regenerates docs/EVAL_RESULTS.md
+make demo        # fresh seeded CLI demo
+make demo-full   # seeds + starts both servers + opens browser
+make server      # FastAPI server on :8000
+make web-dev     # Next.js dev server on :3000
+make lint        # compileall + pyflakes
 ```
+
+**Python 3.10 or later required.** Node 18 or later for the web app. Only `click` and `rich` are required for the CLI; all other deps (`fastapi`, `uvicorn`, `watchdog`, `mcp`) are optional and needed only for the features that use them.

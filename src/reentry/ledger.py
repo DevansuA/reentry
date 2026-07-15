@@ -23,7 +23,7 @@ def append_event(
     supersedes: str | None = None,
 ) -> str | None:
     """Append one event. Returns event id, or None if a duplicate
-    (same project/source/source_event_id) was already ingested — this makes
+    (same project/source/source_event_id) was already ingested; this makes
     webhook retries and re-syncs idempotent."""
     payload = redact_payload(payload)
     raw = db.jdumps(payload)

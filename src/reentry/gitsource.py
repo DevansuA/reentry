@@ -2,7 +2,7 @@
 
 Runs `git` as a subprocess with a fixed, read-only argument set. Never
 writes to the repository. Used both for ingestion (commit events) and
-for *live verification* at capsule time — the capsule always checks
+for live verification at capsule time. The capsule always checks
 current branch/dirty state instead of trusting stored memory.
 """
 

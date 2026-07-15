@@ -34,7 +34,7 @@ def _project_or_die(conn, path="."):
 
 @click.group()
 def cli():
-    """ReEntry — return to momentum. A temporal operating system for interrupted work."""
+    """ReEntry: return to momentum. A temporal operating system for interrupted work."""
 
 
 @cli.command()
@@ -47,7 +47,7 @@ def init(name):
                   f"({p['root_path']}).")
     if gitsource.is_repo(p["root_path"]):
         n = gitsource.sync_commits(conn, p)
-        console.print(f"[green]✓[/green] Git detected — ingested {n} commit(s).")
+        console.print(f"[green]✓[/green] Git detected, ingested {n} commit(s).")
 
 
 @cli.command()
@@ -191,7 +191,7 @@ def replay():
     """Chronological replay of the project's event history."""
     conn = _conn()
     p = _project_or_die(conn)
-    table = Table(title=f"Timeline — {p['name']}")
+    table = Table(title=f"Timeline: {p['name']}")
     for col in ("when", "source", "type", "what", "id"):
         table.add_column(col)
     for e in ledger.events_for_project(conn, p["id"]):
@@ -286,7 +286,7 @@ def demo(target):
     conn = _conn()
     p = demo_mod.seed(conn, target)
     console.print(Panel(
-        "[yellow]SYNTHETIC DEMO PROJECT[/yellow] — all events below are seeded, "
+        "[yellow]SYNTHETIC DEMO PROJECT[/yellow]: all events below are seeded, "
         "not real usage.", style="yellow"))
     cap = capsule_mod.generate(conn, p)
     render_capsule(cap)
@@ -311,7 +311,7 @@ def watch_cmd():
     from .connectors import fs_watcher
     conn = _conn()
     p = _project_or_die(conn)
-    console.print(f"Watching {p['root_path']} — Ctrl+C to stop.")
+    console.print(f"Watching {p['root_path']}. Ctrl+C to stop.")
     fs_watcher.watch(p)
 
 

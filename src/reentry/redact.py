@@ -1,7 +1,7 @@
 """Redaction of likely secrets before anything enters the ledger.
 
-The ledger is append-only, so redaction MUST happen at ingestion time —
-you cannot scrub a secret out later without violating immutability.
+The ledger is append-only, so redaction MUST happen at ingestion time.
+You cannot scrub a secret out later without violating immutability.
 """
 
 from __future__ import annotations

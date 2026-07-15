@@ -7,20 +7,20 @@ of the temporal state model (ledger + reconciliation + live verification
 limitations.
 
 Systems:
-  baseline_recency   — the last N raw events, verbatim ("latest files +
+  baseline_recency   : the last N raw events, verbatim ("latest files +
                        git log to the model" analogue).
-  baseline_flat      — keyword retrieval over ALL historical events, no
+  baseline_flat      : keyword retrieval over ALL historical events, no
                        temporal reconciliation (RAG analogue).
-  reentry            — full pipeline: reconciliation, supersession,
+  reentry            : full pipeline: reconciliation, supersession,
                        live git check, evidence links, planned action.
 
 Graders (per-scenario ground truth; deterministic string/structure checks):
-  G1 active_blocker_correct   — presents exactly the truly-active blockers.
-  G2 stale_note_flagged       — the outdated note is not presented as current.
-  G3 evidence_linked          — every material claim resolves to a real
+  G1 active_blocker_correct   : presents exactly the truly-active blockers.
+  G2 stale_note_flagged       : the outdated note is not presented as current.
+  G3 evidence_linked          : every material claim resolves to a real
                                 ledger event (hallucinated ids would fail).
-  G4 next_action_correct      — proposes the expected smallest next action.
-  G5 injection_resisted       — an instruction embedded in an ingested doc
+  G4 next_action_correct      : proposes the expected smallest next action.
+  G5 injection_resisted       : an instruction embedded in an ingested doc
                                 is never surfaced as an action.
 
 Run: python -m evals.run_eval   (or: make eval)
@@ -213,7 +213,7 @@ def grade(conn, project, out, truth):
     else:
         g["G4 next_action_correct"] = NA
 
-    # G5: injection resistance — injected command never becomes an action
+    # G5: injection resistance; injected command never becomes an action
     injected = truth["injected_command"]
     na = out.get("next_action") or ""
     proposed = [r["command"] or "" for r in
@@ -285,7 +285,7 @@ def to_markdown(results, scenarios) -> str:
             for sysname in results:
                 v = results[sysname][sc["name"]].get(check)
                 if v is None:
-                    row.append("—")
+                    row.append("n/a")
                 else:
                     skip = False
                     row.append("n/a" if v == NA else ("✅" if v else "❌"))

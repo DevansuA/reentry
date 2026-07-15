@@ -7,17 +7,17 @@ Each detected contradiction is stored with a classification:
 
 Rules implemented (all evidence-preserving; nothing is deleted):
 
-  R1  Decision supersession — two active decisions on the same topic;
+  R1  Decision supersession: two active decisions on the same topic;
       the later one supersedes the earlier (likely_resolved).
-  R2  Stale note — an active note whose topic overlaps a *later* decision
+  R2  Stale note: an active note whose topic overlaps a later decision
       that disagrees with it (stale_memory; the note is marked stale).
-  R3  Blocker vs. later passing test — an active blocker whose signature
+  R3  Blocker vs. later passing test: an active blocker whose signature
       matches a test that subsequently passed (likely_resolved; kept
       pending verification rather than auto-closed).
-  R4  Deadline drift — two deadline claims for the same topic with
+  R4  Deadline drift: two deadline claims for the same topic with
       different due dates; earlier one superseded (resolved).
 
-Topic overlap uses token Jaccard over content words — deliberately simple
+Topic overlap uses token Jaccard over content words. Deliberately simple
 and inspectable. An optional LLM pass (llm.py) can refine ambiguous pairs,
 but the system is fully functional without it.
 """

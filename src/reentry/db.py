@@ -3,11 +3,11 @@
 Design: a single SQLite file per user (~/.reentry/reentry.db by default,
 overridable via REENTRY_DB for tests/demo). Two families of tables:
 
-1. The immutable event ledger (`events`) — append-only, enforced with
+1. The immutable event ledger (`events`): append-only, enforced with
    SQLite triggers that reject UPDATE and DELETE. All knowledge derives
    from here; nothing else is a source of truth.
 2. Derived, mutable state (`claims`, `contradictions`, `actions`,
-   `sessions`, `checkpoints`) — always carries `evidence_ids` pointing
+   `sessions`, `checkpoints`): always carries `evidence_ids` pointing
    back into the ledger, plus freshness/confidence metadata.
 """
 

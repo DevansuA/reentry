@@ -4,7 +4,7 @@ Self-contained (no CDN, works offline), respects prefers-reduced-motion,
 and follows an "instrument panel" visual direction: deep slate ground,
 avionics-amber signal color reserved for the entropy tape and blockers,
 phosphor-cyan reserved for evidence chips. Evidence chips are the
-signature element — every material line wears its ledger ids.
+signature element. Every material line wears its ledger ids.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ li:first-of-type{border-top:none}
 .blocker{color:var(--amber)}
 .next{border-left:3px solid var(--ok);padding-left:14px}
 .next code{font:13px var(--mono);color:var(--cyan)}
-/* entropy tape — the instrument */
+/* entropy tape */
 .tape{position:relative;height:14px;border:1px solid var(--line);border-radius:3px;
       background:repeating-linear-gradient(90deg,transparent 0 24px,var(--line) 24px 25px)}
 .tape-fill{height:100%;background:linear-gradient(90deg,var(--ok),var(--amber) 60%,var(--bad));
@@ -113,16 +113,16 @@ def write_html(conn, project, cap, out_path: str) -> str:
         for e in ledger.events_for_project(conn, project["id"]))
 
     is_demo = "demo" in project["name"].lower()
-    banner = ('<div class="demo-banner">SYNTHETIC DEMO DATA — seeded events, '
+    banner = ('<div class="demo-banner">SYNTHETIC DEMO DATA: seeded events, '
               'not real usage</div>' if is_demo else "")
 
     doc = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReEntry — {_e(project['name'])}</title><style>{CSS}</style></head><body>
+<title>ReEntry: {_e(project['name'])}</title><style>{CSS}</style></head><body>
 <header><h1><span class="brand">ReEntry /</span> {_e(project['name'])}</h1>
 <span class="stamp">capsule generated {_e(cap['generated_at'])}</span></header>
 {banner}
-<section><h2>Context entropy — {ent['score']}/100 ({_e(ent['label'])})</h2>
+<section><h2>Context entropy: {ent['score']}/100 ({_e(ent['label'])})</h2>
 <div class="tape"><div class="tape-fill" style="width:{ent['score']}%"></div></div>
 <table class="factors">{frows}</table></section>
 {_section('Last known objective', [cap['objective']] if cap['objective'] else [])}

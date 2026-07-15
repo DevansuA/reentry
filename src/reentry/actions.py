@@ -4,7 +4,7 @@ Lifecycle: PROPOSE → REQUEST APPROVAL → EXECUTE → OBSERVE → VERIFY → R
 
 Hard rules:
   * Only allow-listed command prefixes ever execute, regardless of who or
-    what proposed them (including LLM output or text found in documents —
+    what proposed them (including LLM output or text found in documents;
     ingested content is data, never instructions).
   * Non-READ_ONLY actions always require explicit approval.
   * Execution is bounded: timeout, output truncation.

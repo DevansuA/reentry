@@ -1,7 +1,7 @@
 """Re-entry Capsule.
 
 The signature output. Generated from *current* derived state plus a live
-Git check — never only from stored memory. Every material statement
+Git check; never only from stored memory. Every material statement
 carries evidence_ids, an inference label, and confidence. The optional
 LLM pass (llm.py) may rewrite the objective line for fluency, but every
 fact in the capsule comes from the deterministic pipeline; the model can
@@ -145,7 +145,7 @@ def generate(conn, project: dict, run_reconcile: bool = True) -> dict:
         "entropy": ent,
     }
 
-    # optional fluency pass — facts unchanged, see llm.py
+    # optional fluency pass (facts unchanged, see llm.py)
     from . import llm
     llm.polish_capsule(capsule)
     return capsule

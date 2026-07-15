@@ -8,7 +8,12 @@
       "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/hooks)",
       "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/docs/assets)",
       "Bash(PYTHONPATH=. python3 *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(rm -f /tmp/reentry-demo.db)",
+      "Bash(rm -rf /tmp/reentry-demo-proj)",
+      "Bash(REENTRY_DB=/tmp/reentry-demo.db reentry demo --dir /tmp/reentry-demo-proj)",
+      "Bash(NEXT_TELEMETRY_DISABLED=1 npm --prefix web run build)",
+      "Bash(reentry demo *)"
     ]
   }
 }

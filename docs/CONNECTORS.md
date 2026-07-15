@@ -42,7 +42,7 @@ reconciliation pipeline is fully built, but capture is user-initiated.
 
 `src/reentry/connectors/terminal.py`. Opt-in zsh and bash hooks
 (`hooks/reentry.zsh`, `hooks/reentry.bash`) capture command, exit code, and
-duration — not stdout/stderr by default. Redaction runs twice: once in the
+duration (not stdout/stderr by default). Redaction runs twice: once in the
 shell hook before writing to the spool, and once again in `ingest_spool`
 before appending to the ledger. A planted prompt-injection string in a
 captured command is tested to confirm it is stored as data and cannot reach
@@ -68,24 +68,23 @@ URL. Unauthenticated for public repos; set `REENTRY_GITHUB_TOKEN` for private
 repos. Degrades gracefully offline (returns 0, no exception). All payload text
 passes through `redact.py` before `append_event`.
 
-## Not built — intended designs
+## Not built: intended designs
 
-### Terminal capture (pre-existing design, now superseded above)
+### Terminal capture (superseded by the Milestone 3 implementation above)
 
-Highest-value missing connector: failed commands and error output are the
-raw material of blockers. Intended design: an opt-in shell hook (zsh
-`precmd`/bash `PROMPT_COMMAND`) appending `{command, exit_code, duration}` —
-**not full output by default** — to a local spool the CLI ingests. Full
-output capture would be per-command opt-in because terminals are where
-secrets appear most; redaction must run before spool write, same as today.
+The original intended design (for reference): an opt-in shell hook (zsh
+`precmd`/bash `PROMPT_COMMAND`) appending `{command, exit_code, duration}`,
+not full output by default, to a local spool the CLI ingests. Full output
+capture would be per-command opt-in because terminals are where secrets appear
+most; redaction must run before spool write. This is exactly what was built.
 
-### GitHub
+### GitHub (superseded by the Milestone 4 implementation above)
 
 Read-only REST polling of PRs, reviews, and issue events for the current
-repo, ingested as ledger events (idempotent by GitHub event id — the ledger
+repo, ingested as ledger events (idempotent by GitHub event id; the ledger
 already supports `source_event_id` dedup, so this slots in). Review comments
-would feed the contradiction rules: an "approved" review is evidence against
-a "waiting on review" blocker, exactly like R3's passing test.
+feed the contradiction rules: an approved review is evidence against a
+"waiting on review" blocker, exactly like R3's passing test. Built.
 
 ### Calendar
 
@@ -108,5 +107,5 @@ Any future connector must:
 1. Be **read-only** against the source system.
 2. Provide a stable `source_event_id` so ledger idempotency holds.
 3. Pass all captured text through `redact.py` **before** `append_event`.
-4. Never emit executable suggestions directly — proposals go through the
+4. Never emit executable suggestions directly. Proposals go through the
    planner and the allow-list like everything else.

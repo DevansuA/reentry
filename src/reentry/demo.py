@@ -138,6 +138,6 @@ def seed(conn, target_dir: str | None = None) -> dict:
                     occurred_at=_iso(2), session_id=s2["id"])
     state.create_checkpoint(conn, pid, at=_iso(1.9))
     # note: the fixing commit (2 days ago) landed but the test was never
-    # re-run — exactly the situation the proposed action resolves.
+    # re-run; exactly the situation the proposed action resolves.
 
     return state.get_project(conn, project_id=pid)

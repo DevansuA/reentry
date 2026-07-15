@@ -1,8 +1,8 @@
-"""Context Entropy: an explainable measure of resume risk (0–100).
+"""Context Entropy: an explainable measure of resume risk (0-100).
 
 Every point of the score is attributable to a named factor, each factor
 says what would reduce it, and the weights are visible constants below.
-Not a vibe — a checklist with numbers.
+Not a vibe. A checklist with numbers.
 """
 
 from __future__ import annotations
