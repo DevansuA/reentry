@@ -82,6 +82,10 @@ def detect_repo(project_root: str) -> str | None:
 def sync_github(conn, project: dict, repo: str | None = None) -> int:
     """Poll GitHub events for the repository and ingest new ones.
 
+    After ingestion, runs review-to-blocker reconciliation: an approved PR
+    review becomes evidence against any active "waiting on review" blocker,
+    mirroring how R3 uses a passing test against a test-failure blocker.
+
     Returns the count of newly ingested ledger events.
     """
     if not repo:
@@ -114,7 +118,6 @@ def sync_github(conn, project: dict, repo: str | None = None) -> int:
         except json.JSONDecodeError:
             payload = {"_raw": payload_redacted[:2000]}
 
-        # Add the event type and actor as top-level fields for readability.
         payload.setdefault("event_type", ev_type)
         payload.setdefault("actor", actor)
 
@@ -131,4 +134,77 @@ def sync_github(conn, project: dict, repo: str | None = None) -> int:
         if eid:
             count += 1
 
+    # After ingesting new events, reconcile approved reviews against blockers.
+    reconcile_reviews(conn, project)
     return count
+
+
+def reconcile_reviews(conn, project: dict) -> list[str]:
+    """Detect approved PR reviews that resolve "waiting on review" blockers.
+
+    An approved review event (PullRequestReviewEvent with review.state ==
+    "approved") that arrives after a "review"-topic blocker was filed is
+    treated as likely-resolving that blocker, exactly as R3 uses a passing
+    test to resolve a test-failure blocker.
+
+    Returns the list of contradiction ids newly created.
+    """
+    from .. import db as redb, state
+
+    pid = project["id"]
+    review_events = ledger.events_for_project(
+        conn, pid, event_type="PullRequestReviewEvent")
+
+    approved_reviews = []
+    for ev in review_events:
+        try:
+            payload = json.loads(ev["payload"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        review = payload.get("review") or {}
+        if review.get("state") == "approved":
+            approved_reviews.append(ev)
+
+    if not approved_reviews:
+        return []
+
+    blockers = state.claims_for_project(conn, pid, kind="blocker", status="active")
+    _review_keywords = {"review", "reviewed", "waiting", "pr", "pull", "request"}
+
+    new_contradictions = []
+    for blocker in blockers:
+        btokens = set(_simple_tokens(blocker["text"]))
+        if not btokens & _review_keywords:
+            continue
+        for rev_ev in approved_reviews:
+            if rev_ev["occurred_at"] > blocker["observed_at"]:
+                exists = conn.execute(
+                    "SELECT 1 FROM contradictions WHERE claim_a = ? AND claim_b = ?",
+                    (blocker["id"], rev_ev["id"]),
+                ).fetchone()
+                if not exists:
+                    cid = redb.new_id()
+                    conn.execute(
+                        "INSERT INTO contradictions (id, project_id, claim_a, claim_b,"
+                        " classification, explanation, detected_at, evidence_ids)"
+                        " VALUES (?,?,?,?,?,?,?,?)",
+                        (
+                            cid, pid, blocker["id"], rev_ev["id"],
+                            "likely_resolved",
+                            "An approved PR review arrived after this blocker was "
+                            "recorded; blocker is likely resolved (verify to confirm).",
+                            redb.utcnow(),
+                            redb.jdumps(
+                                redb.jloads(blocker["evidence_ids"]) + [rev_ev["id"]]
+                            ),
+                        ),
+                    )
+                    conn.commit()
+                    new_contradictions.append(cid)
+
+    return new_contradictions
+
+
+def _simple_tokens(text: str) -> list[str]:
+    import re
+    return [w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 2]
