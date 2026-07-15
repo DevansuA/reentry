@@ -1,0 +1,303 @@
+"""ReEntry CLI."""
+
+from __future__ import annotations
+
+import os
+
+import click
+from rich.console import Console
+from rich.markup import escape
+from rich.panel import Panel
+from rich.table import Table
+
+from . import actions as actions_mod
+from . import capsule as capsule_mod
+from . import contradictions as contradictions_mod
+from . import db, gitsource, ledger, state
+
+console = Console()
+
+CONF_ICON = {"observed": "●", "inferred": "○", "user_corrected": "◆"}
+
+
+def _conn():
+    return db.connect()
+
+
+def _project_or_die(conn, path="."):
+    p = state.get_project(conn, path)
+    if not p:
+        console.print("[red]No ReEntry project here. Run [bold]reentry init[/bold] first.[/red]")
+        raise SystemExit(1)
+    return p
+
+
+@click.group()
+def cli():
+    """ReEntry — return to momentum. A temporal operating system for interrupted work."""
+
+
+@cli.command()
+@click.option("--name", default=None, help="Project name (defaults to folder name).")
+def init(name):
+    """Register the current directory as a ReEntry project."""
+    conn = _conn()
+    p = state.register_project(conn, ".", name)
+    console.print(f"[green]✓[/green] Project [bold]{p['name']}[/bold] registered "
+                  f"({p['root_path']}).")
+    if gitsource.is_repo(p["root_path"]):
+        n = gitsource.sync_commits(conn, p)
+        console.print(f"[green]✓[/green] Git detected — ingested {n} commit(s).")
+
+
+@cli.command()
+@click.option("--objective", "-o", default=None, help="What you intend to accomplish.")
+def start(objective):
+    """Start a work session."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    s = state.start_session(conn, p["id"], objective)
+    console.print(f"[green]✓[/green] Session started ({s['id']})."
+                  + (f" Objective: {objective}" if objective else ""))
+
+
+def _claim_cmd(kind, help_text):
+    @click.argument("text")
+    @click.option("--rationale", "-r", default=None)
+    def cmd(text, rationale):
+        conn = _conn()
+        p = _project_or_die(conn)
+        s = state.current_session(conn, p["id"])
+        c = state.add_claim(conn, p["id"], kind, text, rationale=rationale,
+                            session_id=s["id"] if s else None)
+        console.print(f"[green]✓[/green] {kind.capitalize()} recorded ({c['id']}).")
+    cmd.__doc__ = help_text
+    return cmd
+
+
+cli.command("note")(_claim_cmd("note", "Record a note."))
+cli.command("decide")(_claim_cmd("decision", "Record a decision (use -r for rationale)."))
+cli.command("block")(_claim_cmd("blocker", "Record a blocker."))
+cli.command("question")(_claim_cmd("question", "Record an open question."))
+
+
+@cli.command()
+def checkpoint():
+    """End the session with a checkpoint."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    gitsource.sync_commits(conn, p)
+    ck = state.create_checkpoint(conn, p["id"])
+    console.print(f"[green]✓[/green] Checkpoint {ck['id']} created; session closed.")
+
+
+@cli.command()
+@click.option("--json", "as_json", is_flag=True, help="Emit the capsule as JSON.")
+def resume(as_json):
+    """Generate the Re-entry Capsule for this project."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    cap = capsule_mod.generate(conn, p)
+    if as_json:
+        console.print_json(db.jdumps(cap))
+        return
+    render_capsule(cap)
+
+
+def _ev(item):
+    ids = item.get("evidence_ids") or []
+    tag = f" [dim]‹ev:{','.join(ids[:3])}{'…' if len(ids) > 3 else ''}›[/dim]" if ids else ""
+    icon = CONF_ICON.get(item.get("inference", "observed"), "●")
+    return f"{icon} {escape(item['text'])}{tag}"
+
+
+def render_capsule(cap):
+    ent = cap["entropy"]
+    color = {"low": "green", "moderate": "yellow", "high": "red"}[ent["label"]]
+    console.print(Panel(
+        f"[bold]{cap['project']}[/bold]   "
+        f"context entropy: [{color}]{ent['score']}/100 ({ent['label']})[/{color}]",
+        title="RE-ENTRY CAPSULE", subtitle=cap["generated_at"]))
+
+    if cap["objective"]:
+        console.print("[bold]1. Last known objective[/bold]")
+        console.print("   " + _ev(cap["objective"]))
+    sections = [
+        ("2. Where things stand", cap["where_things_stand"]),
+        ("3. What changed", cap["what_changed"]),
+        ("4. Decisions", cap["decisions"]),
+        ("5. Blockers", cap["blockers"]),
+        ("6. Contradictions & stale assumptions", cap["contradictions"]),
+        ("7. Deadlines & commitments", cap["deadlines"]),
+    ]
+    for title, items in sections:
+        if not items:
+            continue
+        console.print(f"[bold]{title}[/bold]")
+        for it in items:
+            console.print("   " + _ev(it))
+            if it.get("rationale"):
+                console.print(f"     [dim]why: {it['rationale']}[/dim]")
+            if it.get("classification"):
+                console.print(f"     [dim]classification: {it['classification']}[/dim]")
+            if it.get("due_at"):
+                console.print(f"     [dim]due: {it['due_at'][:16]}[/dim]")
+
+    if cap["next_action"]:
+        a = cap["next_action"]
+        console.print("[bold]8. Recommended next action[/bold]")
+        console.print(f"   → {a['text']}")
+        console.print(f"     [dim]{a['command']}  ·  risk: {a['risk']}  ·  "
+                      f"approve with: reentry approve {a['action_id']}[/dim]")
+    console.print("[dim]● observed  ○ inferred  ◆ user-corrected   "
+                  "‹ev:…› = ledger evidence ids (reentry evidence <id>)[/dim]")
+
+
+@cli.command()
+@click.argument("event_id")
+def evidence(event_id):
+    """Show the raw ledger event behind a claim."""
+    conn = _conn()
+    e = ledger.get_event(conn, event_id)
+    if not e:
+        # maybe it's a checkpoint id
+        row = conn.execute("SELECT * FROM checkpoints WHERE id = ?", (event_id,)).fetchone()
+        if row:
+            console.print_json(db.jdumps(dict(row)))
+            return
+        console.print("[red]No such evidence id.[/red]")
+        raise SystemExit(1)
+    console.print_json(db.jdumps(e))
+
+
+@cli.command()
+def status():
+    """Quick project status."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    s = state.current_session(conn, p["id"])
+    git = gitsource.live_status(p["root_path"])
+    console.print(f"Project: [bold]{p['name']}[/bold]")
+    console.print(f"Session: {'open since ' + s['started_at'] if s else 'none'}")
+    if git.get("is_repo"):
+        console.print(f"Git: {git['branch']} @ {git['head']} "
+                      f"({git['uncommitted_count']} uncommitted)")
+    blockers = state.claims_for_project(conn, p["id"], "blocker", "active")
+    console.print(f"Active blockers: {len(blockers)}")
+
+
+@cli.command()
+def replay():
+    """Chronological replay of the project's event history."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    table = Table(title=f"Timeline — {p['name']}")
+    for col in ("when", "source", "type", "what", "id"):
+        table.add_column(col)
+    for e in ledger.events_for_project(conn, p["id"]):
+        payload = db.jloads(e["payload"]) or {}
+        what = payload.get("subject") or payload.get("text") or \
+            payload.get("name") or payload.get("command") or ""
+        table.add_row(e["occurred_at"][:16], e["source"], e["event_type"],
+                      str(what)[:60], e["id"])
+    console.print(table)
+
+
+@cli.command("actions")
+def list_actions():
+    """List proposed/pending actions."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    rows = actions_mod.pending(conn, p["id"])
+    if not rows:
+        console.print("No pending actions.")
+        return
+    for a in rows:
+        console.print(f"[bold]{a['id']}[/bold]  {a['title']}")
+        console.print(f"   {a['command']}  ·  risk: {a['risk']}")
+
+
+@cli.command()
+@click.argument("action_id")
+@click.option("--run/--no-run", default=True, help="Execute immediately after approval.")
+def approve(action_id, run):
+    """Approve (and by default execute + verify) a proposed action."""
+    conn = _conn()
+    p = _project_or_die(conn)
+    a = actions_mod.approve(conn, action_id)
+    if not a:
+        console.print("[red]No such action.[/red]")
+        raise SystemExit(1)
+    console.print(f"[green]✓[/green] Approved: {a['title']}")
+    if run:
+        a = actions_mod.execute(conn, action_id, cwd=p["root_path"])
+        res = db.jloads(a["result"]) or {}
+        ok = a["status"] == "verified"
+        console.print(("[green]✓ verified[/green]" if ok else "[red]✗ failed[/red]")
+                      + f"  exit={res.get('exit_code')}")
+        tail = (res.get("stdout") or res.get("stderr") or "").strip().splitlines()[-5:]
+        for line in tail:
+            console.print(f"   [dim]{line}[/dim]")
+        if ok and a["resolves_claim"]:
+            console.print("[green]✓[/green] Linked blocker marked resolved; state updated.")
+
+
+@cli.command()
+@click.argument("action_id")
+def reject(action_id):
+    """Reject a proposed action."""
+    conn = _conn()
+    actions_mod.reject(conn, action_id)
+    console.print("Rejected.")
+
+
+@cli.command()
+@click.option("--out", default="reentry_dashboard.html", help="Output HTML path.")
+def dashboard(out):
+    """Write a static HTML dashboard for this project."""
+    from . import report
+    conn = _conn()
+    p = _project_or_die(conn)
+    cap = capsule_mod.generate(conn, p)
+    path = report.write_html(conn, p, cap, out)
+    console.print(f"[green]✓[/green] Dashboard written to {path}")
+
+
+@cli.command()
+def doctor():
+    """Check the local ReEntry installation."""
+    conn = _conn()
+    console.print(f"DB: {db.db_path()}")
+    n = conn.execute("SELECT COUNT(*) c FROM projects").fetchone()["c"]
+    console.print(f"Projects: {n}")
+    console.print(f"Git available: {gitsource.is_repo('.') or 'not a repo here (ok)'}")
+    provider = os.environ.get("REENTRY_LLM_PROVIDER", "none")
+    console.print(f"LLM provider: {provider} "
+                  f"({'configured' if provider != 'none' else 'deterministic mode'})")
+    console.print("[green]✓ ok[/green]")
+
+
+@cli.command()
+@click.option("--dir", "target", default=None,
+              help="Where to create the demo project (default: temp dir).")
+def demo(target):
+    """Create the seeded synthetic demo project and print its capsule."""
+    from . import demo as demo_mod
+    conn = _conn()
+    p = demo_mod.seed(conn, target)
+    console.print(Panel(
+        "[yellow]SYNTHETIC DEMO PROJECT[/yellow] — all events below are seeded, "
+        "not real usage.", style="yellow"))
+    cap = capsule_mod.generate(conn, p)
+    render_capsule(cap)
+    console.print(f"\nDemo project directory: {p['root_path']}")
+    console.print("Try: cd into it, then `reentry replay`, `reentry actions`, "
+                  "`reentry approve <id>`, `reentry dashboard`.")
+
+
+def main():
+    cli()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,2 @@
+[console_scripts]
+reentry = reentry.cli:main

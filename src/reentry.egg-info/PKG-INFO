@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: reentry
+Version: 0.1.0
+Summary: Return to momentum: an event-driven temporal operating system for interrupted knowledge work.
+Requires-Python: >=3.10
+Requires-Dist: click>=8.1
+Requires-Dist: rich>=13
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
