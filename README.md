@@ -1,5 +1,7 @@
 # ReEntry
 
+[![CI](https://github.com/DevansuA/reentry/actions/workflows/ci.yml/badge.svg)](https://github.com/DevansuA/reentry/actions/workflows/ci.yml)
+
 You open a project you haven't touched in a week. Your notes say one thing, your last commit says another, and the test that was failing might already be fixed. Figuring out where you left off takes longer than the work itself.
 
 ReEntry solves that. It maintains an append-only event ledger from your commits, terminal commands, notes, and decisions, then generates a Re-entry Capsule that tells you what was happening, what changed while you were away, and what to do first. Every sentence in the capsule links to the ledger event that supports it.
