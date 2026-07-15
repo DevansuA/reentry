@@ -55,6 +55,14 @@ which is the correct way to call blocking I/O. Switching to an async DB
 driver would require replacing sqlite3 with aiosqlite and rewriting all
 queries — too large a change for no user-visible benefit at current scale.
 
+**D12 — MCP directory must not contain __init__.py.** The local `mcp/`
+directory would otherwise shadow the installed `mcp` package on `sys.path`,
+causing `from mcp.server.fastmcp import FastMCP` to resolve to our own
+`mcp/server.py` and fail. Keeping `mcp/` as a plain directory (not a
+Python package) fixes the import resolution. The `reentry` package is
+already installed via `pip install -e .` so no `sys.path` manipulation is
+needed in the server file.
+
 **D11 — No Tailwind or component library in the web app.** The visual
 identity is a small, well-defined set of CSS variables (already defined in
 report.py). A plain globals.css that reuses those variables keeps the web app

@@ -118,6 +118,29 @@ something the ledger does not support.
   mode). When enabled, only the objective-summary inputs are sent, not the
   full ledger. No SDK; a single `urllib` call to the configured provider.
 
+### T7. MCP surface used to approve or execute actions
+
+*Attack:* an agent connected via the MCP server tries to approve a pending
+action or execute a command directly, bypassing the human-in-the-loop
+requirement.
+
+*Mitigations:*
+- The MCP server exposes exactly five tools: `get_capsule`,
+  `list_contradictions`, `get_evidence`, `propose_action`, and
+  `list_pending_actions`. No approve, execute, or run tool exists on the
+  surface. The test suite asserts this explicitly
+  (`test_no_approve_or_execute_tool`).
+- `propose_action` only creates a row in the `actions` table with status
+  `proposed`. It does not call `actions.approve` or `actions.execute`. The
+  row sits idle until a human runs `reentry approve <id>` or clicks
+  "Approve and run" in the web UI.
+- The allow-list and metacharacter checks run inside `propose_action` the
+  same as for CLI-initiated proposals, so a malicious command cannot even
+  enter the queue.
+
+*Residual risk:* a compromised host could modify the DB file directly. This
+is in scope for T4 (ledger tampering) and is addressed the same way.
+
 ## Out of scope (v0.1)
 
 - Multi-user access control (single-user local tool).
