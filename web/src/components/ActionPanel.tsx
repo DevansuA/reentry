@@ -4,29 +4,43 @@ import { useState } from "react";
 import { approveAction, rejectAction, ApiError } from "@/lib/api";
 import type { PendingAction, CapsuleItem } from "@/lib/types";
 
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 interface Props {
   nextAction: CapsuleItem | null;
   pendingActions: PendingAction[];
   onRefresh: () => void;
+  /** In demo mode: pass the simulated post-approval snapshot. */
+  onSimulatedApprove?: () => void;
 }
 
 type ActionResult = { status: string; detail?: string };
 
-export function ActionPanel({ nextAction, pendingActions, onRefresh }: Props) {
+export function ActionPanel({
+  pendingActions,
+  onRefresh,
+  onSimulatedApprove,
+}: Props) {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, ActionResult>>({});
 
   if (!pendingActions.length) return null;
 
   async function handleApprove(id: string) {
+    if (IS_DEMO && onSimulatedApprove) {
+      // Demo mode: play the pre-computed after-state, no subprocess.
+      setResults((r) => ({ ...r, [id]: { status: "verified (simulated)" } }));
+      setTimeout(onSimulatedApprove, 800);
+      return;
+    }
+
     setBusy((b) => ({ ...b, [id]: true }));
     try {
       const a = await approveAction(id);
       setResults((r) => ({ ...r, [id]: { status: a.status } }));
       onRefresh();
     } catch (e) {
-      const detail =
-        e instanceof ApiError ? e.message : "Unexpected error.";
+      const detail = e instanceof ApiError ? e.message : "Unexpected error.";
       setResults((r) => ({ ...r, [id]: { status: "error", detail } }));
     } finally {
       setBusy((b) => ({ ...b, [id]: false }));
@@ -34,6 +48,10 @@ export function ActionPanel({ nextAction, pendingActions, onRefresh }: Props) {
   }
 
   async function handleReject(id: string) {
+    if (IS_DEMO) {
+      setResults((r) => ({ ...r, [id]: { status: "rejected" } }));
+      return;
+    }
     setBusy((b) => ({ ...b, [id]: true }));
     try {
       await rejectAction(id);
@@ -46,62 +64,98 @@ export function ActionPanel({ nextAction, pendingActions, onRefresh }: Props) {
   }
 
   return (
-    <section className="panel">
-      <h2 className="section-title">Recommended next action</h2>
+    <div className="panel">
+      <div className="panel-header">
+        <p className="panel-label">Recommended next action</p>
+      </div>
 
-      {pendingActions.map((action) => {
-        const result = results[action.id];
-        const isBusy = !!busy[action.id];
+      {IS_DEMO && (
+        <div style={{
+          padding: "var(--s2) var(--s4)",
+          borderBottom: "1px solid var(--border)",
+          fontSize: "0.75rem",
+          color: "var(--amber)",
+          background: "rgba(232,163,61,0.06)",
+        }}>
+          Simulated demo: actions are simulated here.{" "}
+          <a
+            href="https://github.com/DevansuA/reentry#quick-start"
+            style={{ color: "var(--amber)", textDecoration: "underline" }}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Install locally
+          </a>{" "}
+          to run them for real.
+        </div>
+      )}
 
-        return (
-          <div key={action.id} className="action-row">
-            <div className="action-row-title">{action.title}</div>
-            <div className="action-row-cmd">
-              <code>{action.command}</code>
-            </div>
-            <div className="action-buttons">
-              <span className="badge">{action.risk}</span>
+      <div className="action-section">
+        {pendingActions.map((action) => {
+          const result = results[action.id];
+          const isBusy = !!busy[action.id];
 
-              {result ? (
-                <span
-                  className={
-                    result.status === "verified" ? "result-ok" : "result-bad"
-                  }
-                >
-                  {result.status === "verified"
-                    ? "verified"
-                    : result.detail
-                      ? `failed: ${result.detail}`
-                      : result.status}
-                </span>
-              ) : (
-                <>
-                  <button
-                    className="btn btn-approve"
-                    disabled={isBusy}
-                    onClick={() => handleApprove(action.id)}
+          return (
+            <div key={action.id} className="action-box">
+              <p className="action-title">{action.title}</p>
+              <code className="action-cmd">{action.command}</code>
+              <div className="action-buttons">
+                <span className="badge">{action.risk}</span>
+
+                {result ? (
+                  <span
+                    className={
+                      result.status.startsWith("verified")
+                        ? "result-ok"
+                        : "result-bad"
+                    }
                   >
-                    {isBusy ? "Running..." : "Approve and run"}
-                  </button>
-                  <button
-                    className="btn btn-reject"
-                    disabled={isBusy}
-                    onClick={() => handleReject(action.id)}
-                  >
-                    Reject
-                  </button>
-                </>
-              )}
+                    {result.status}
+                    {result.detail ? `: ${result.detail}` : ""}
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      className="btn btn-sm btn-cyan"
+                      disabled={isBusy}
+                      onClick={() => handleApprove(action.id)}
+                      aria-label={`Approve and run: ${action.command}`}
+                    >
+                      {isBusy
+                        ? "Running..."
+                        : IS_DEMO
+                          ? "Approve and run (simulated)"
+                          : "Approve and run"}
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      disabled={isBusy}
+                      onClick={() => handleReject(action.id)}
+                      aria-label={`Reject: ${action.command}`}
+                      style={{ color: "var(--bad)", borderColor: "var(--bad)" }}
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
-      <p className="dim" style={{ fontSize: 12, marginTop: 12 }}>
-        Approval here uses the same validation path as{" "}
-        <code>reentry approve</code>: the allow-list and metacharacter checks
-        run again at execution time.
-      </p>
-    </section>
+      <div
+        style={{
+          padding: "var(--s2) var(--s4)",
+          borderTop: "1px solid var(--border)",
+          fontSize: "0.75rem",
+          color: "var(--ink-3)",
+        }}
+      >
+        {IS_DEMO
+          ? "This action is simulated in the hosted demo."
+          : "Approval runs the same allow-list check as `reentry approve`."}
+      </div>
+    </div>
   );
 }

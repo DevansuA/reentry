@@ -20,7 +20,12 @@
       "Bash(grep -rn \"sk-[A-Za-z0-9]\\\\{20,\\\\}\\\\|ghp_[A-Za-z0-9]\\\\{20,\\\\}\\\\|AKIA[0-9A-Z]\\\\{16\\\\}\\\\|BEGIN PRIVATE KEY\\\\|bearer [A-Za-z0-9]\\\\{20,\\\\}\" --include=\"*.py\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.md\" .)",
       "Bash(git remote *)",
       "Bash(gh api *)",
-      "Bash(gh run *)"
+      "Bash(gh run *)",
+      "Bash(curl -sL \"https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZJhiJ-Ek-_EeA.woff2\" -o /Users/devanshuagarwal/Downloads/files-2/reentry/web/public/fonts/InterVariable.woff2)",
+      "Bash(mkdir -p /Users/devanshuagarwal/Downloads/files-2/reentry/web/src/app/api/evidence/\\\\[id\\\\])",
+      "Bash(mkdir -p \"/Users/devanshuagarwal/Downloads/files-2/reentry/web/src/app/api/actions/[id]/approve\")",
+      "Bash(mkdir -p \"/Users/devanshuagarwal/Downloads/files-2/reentry/web/src/app/api/actions/[id]/reject\")",
+      "Bash(NEXT_PUBLIC_DEMO_MODE=true NEXT_TELEMETRY_DISABLED=1 npm --prefix web run build)"
     ]
   }
 }

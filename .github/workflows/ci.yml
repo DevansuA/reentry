@@ -50,11 +50,22 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
+      - name: Set up Python 3.11 (for snapshot generator)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python deps (needed by snapshot generator)
+        run: pip install -e ".[all]"
+
       - name: Install Node dependencies
         run: npm --prefix web install
 
-      - name: Build Next.js
-        run: NEXT_TELEMETRY_DISABLED=1 npm --prefix web run build
+      - name: Build Next.js in demo mode (generates snapshot + full build)
+        run: |
+          NEXT_PUBLIC_DEMO_MODE=true NEXT_TELEMETRY_DISABLED=1 \
+            npm --prefix web run build
 
   vscode:
     name: VS Code extension compile

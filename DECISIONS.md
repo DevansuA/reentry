@@ -122,3 +122,27 @@ server endpoints (and the same allow-list check) as the web UI and CLI. A test
 at the API layer verifies the allow-list fires even for direct bypass attempts.
 The .vsix is committed at `vscode-extension/reentry-0.1.0.vsix` for
 one-command install: `code --install-extension vscode-extension/reentry-0.1.0.vsix`.
+
+**D19: Vercel-only hosted deployment; no separate backend host.** The hosted
+demo is a static snapshot of the real pipeline output. Running a live FastAPI
+server on a second host would add cold starts, cost, and an execution-risk
+surface for zero user benefit: the hosted demo never runs real commands.
+The FastAPI server remains the backend for local use, unchanged. In Vercel,
+Next.js API routes serve the pre-generated snapshot through identical response
+shapes, so the frontend has one data path for both contexts.
+
+**D20: Build-time snapshot via Python pipeline, not hand-written JSON.**
+`web/scripts/generate-snapshot.py` seeds the demo project, runs the full
+housekeeping pipeline, approves the pending action, and exports two JSON
+blobs (before and after) to `web/src/data/snapshot.json`. This runs as part
+of `npm run build` so a broken pipeline fails CI before Vercel ever sees it.
+The snapshot is committed so local `next build` works without Python, but
+Vercel regenerates it fresh on every deploy.
+
+**D21: Inter Variable as the single self-hosted typeface.** One font file
+(`web/public/fonts/InterVariable.woff2`, Latin subset, 34 KB) covers the full
+weight range from body (400) through display (800). No CDN request at runtime.
+The display scale (`clamp(3.2rem, 6vw, 7rem)`, weight 800, letter-spacing
+-0.04em) achieves a typographic presence comparable to commercial brand sites
+without a custom or licensed typeface. Inter is widely recognised, readable at
+all sizes, and free under the SIL Open Font License.

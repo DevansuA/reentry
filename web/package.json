@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "node scripts/generate-snapshot.js && next build",
+    "build:no-snapshot": "next build",
+    "start": "next start",
+    "snapshot": "node scripts/generate-snapshot.js"
   },
   "dependencies": {
     "next": "^15.3.0",

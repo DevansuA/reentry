@@ -1,6 +1,6 @@
 "use client";
 
-import type { Capsule, LedgerEvent } from "@/lib/types";
+import type { Capsule } from "@/lib/types";
 import { EntropyGauge } from "./EntropyGauge";
 import { CapsuleSection, CapsuleItemRow } from "./CapsuleSection";
 import { ActionPanel } from "./ActionPanel";
@@ -10,89 +10,120 @@ interface Props {
   capsule: Capsule;
   onRefresh: () => void;
   refreshing?: boolean;
+  onSimulatedApprove?: () => void;
 }
 
-export function CapsuleView({ capsule: cap, onRefresh, refreshing }: Props) {
+export function CapsuleView({
+  capsule: cap,
+  onRefresh,
+  refreshing,
+  onSimulatedApprove,
+}: Props) {
   const isDemo = cap.project.toLowerCase().includes("demo");
 
   return (
-    <div className="page">
-      <header className="site-header">
-        <h1>
-          <span className="brand">ReEntry /</span> {cap.project}
-        </h1>
-        <div className="header-actions">
-          <span className="stamp">{cap.generated_at.slice(0, 16).replace("T", " ")}</span>
+    <div className="app-page">
+      {/* header */}
+      <header className="app-header">
+        <div className="app-header-left">
+          <h1>
+            <span className="brand">ReEntry /</span> {cap.project}
+          </h1>
+          <p className="timestamp">
+            {cap.generated_at.slice(0, 16).replace("T", " ")} UTC
+          </p>
+        </div>
+        <div className="app-header-right">
           <button
-            className="refresh-btn"
+            className="btn btn-sm btn-outline"
             onClick={onRefresh}
             disabled={refreshing}
-            title="Regenerate capsule"
+            aria-label="Regenerate capsule"
           >
-            {refreshing ? "Refreshing..." : "Refresh"}
+            {refreshing ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </header>
 
       {isDemo && (
         <div className="demo-banner">
-          SYNTHETIC DEMO DATA &mdash; seeded events, not real usage
+          <span>Synthetic demo data: seeded events, not real usage.</span>
         </div>
       )}
 
-      <EntropyGauge entropy={cap.entropy} />
+      {/* two-column layout */}
+      <div className="app-layout">
+        {/* main column */}
+        <div className="app-main">
+          {cap.objective && (
+            <div className="panel">
+              <div className="panel-header">
+                <p className="panel-label">Objective</p>
+              </div>
+              <div className="panel-body">
+                <p className="objective-text">{cap.objective.text}</p>
+                <div style={{ marginTop: "var(--s2)", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {(cap.objective.evidence_ids ?? []).slice(0, 3).map((id) => (
+                    <EvidenceChip key={id} id={id} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
-      {cap.objective && (
-        <section className="panel">
-          <h2 className="section-title">Last known objective</h2>
-          <ul className="item-list">
-            <CapsuleItemRow item={cap.objective} />
-          </ul>
-        </section>
-      )}
+          <CapsuleSection
+            title="Where things stand"
+            items={cap.where_things_stand}
+          />
 
-      <CapsuleSection
-        title="Where things stand"
-        items={cap.where_things_stand}
-      />
+          <CapsuleSection title="What changed" items={cap.what_changed} />
 
-      <CapsuleSection
-        title="What changed"
-        items={cap.what_changed}
-      />
+          <CapsuleSection title="Decisions" items={cap.decisions} />
 
-      <CapsuleSection
-        title="Decisions"
-        items={cap.decisions}
-      />
+          <CapsuleSection
+            title="Blockers"
+            items={cap.blockers}
+            textClass="blocker"
+          />
 
-      <CapsuleSection
-        title="Blockers"
-        items={cap.blockers}
-        textClass="blocker"
-      />
+          <CapsuleSection
+            title="Contradictions and stale assumptions"
+            items={cap.contradictions}
+            useContradictionLayout
+          />
 
-      <CapsuleSection
-        title="Contradictions and stale assumptions"
-        items={cap.contradictions}
-      />
+          <CapsuleSection
+            title="Deadlines and commitments"
+            items={cap.deadlines}
+          />
 
-      <CapsuleSection
-        title="Deadlines and commitments"
-        items={cap.deadlines}
-      />
+          <Timeline cap={cap} />
+        </div>
 
-      <ActionPanel
-        nextAction={cap.next_action}
-        pendingActions={cap.pending_actions}
-        onRefresh={onRefresh}
-      />
+        {/* right rail */}
+        <div className="app-rail">
+          <EntropyGauge entropy={cap.entropy} />
 
-      <Timeline capsule={cap} />
+          <ActionPanel
+            nextAction={cap.next_action}
+            pendingActions={cap.pending_actions}
+            onRefresh={onRefresh}
+            onSimulatedApprove={onSimulatedApprove}
+          />
 
-      <RawCapsule capsule={cap} />
+          <RawCapsule cap={cap} />
+        </div>
+      </div>
 
-      <footer className="stamp" style={{ marginTop: 32, textAlign: "center" }}>
+      <footer
+        style={{
+          marginTop: "var(--s8)",
+          paddingTop: "var(--s4)",
+          borderTop: "1px solid var(--border)",
+          fontSize: "0.75rem",
+          color: "var(--ink-3)",
+        }}
+      >
         ● observed &nbsp; ○ inferred &nbsp; ◆ user-corrected &nbsp;&nbsp;
         Cyan chips open the raw ledger event behind each claim.
       </footer>
@@ -100,34 +131,47 @@ export function CapsuleView({ capsule: cap, onRefresh, refreshing }: Props) {
   );
 }
 
-function Timeline({ capsule: cap }: { capsule: Capsule }) {
+function Timeline({ cap }: { cap: Capsule }) {
+  if (!cap.what_changed.length) return null;
   return (
-    <section className="panel" style={{ marginTop: 16 }}>
-      <h2 className="section-title">Timeline (event ledger)</h2>
-      <ul className="timeline-list">
+    <div className="panel">
+      <div className="panel-header">
+        <p className="panel-label">Timeline (since last checkpoint)</p>
+      </div>
+      <ul className="item-list" style={{ padding: "0 var(--s4)" }}>
         {cap.what_changed.map((item, i) => (
-          <li key={i}>
-            <span className="tl-source">{item.text.match(/\[([^\]]+)\]/)?.[1] ?? ""}</span>
-            <span className="tl-text">{item.text.replace(/^\[[^\]]+\]\s*/, "")}</span>
-            {(item.evidence_ids ?? []).slice(0, 1).map((id) => (
-              <EvidenceChip key={id} id={id} />
-            ))}
-          </li>
+          <CapsuleItemRow key={i} item={item} />
         ))}
       </ul>
-    </section>
+    </div>
   );
 }
 
-function RawCapsule({ capsule: cap }: { capsule: Capsule }) {
+function RawCapsule({ cap }: { cap: Capsule }) {
   return (
-    <details style={{ marginTop: 16 }}>
-      <summary className="stamp" style={{ cursor: "pointer" }}>
-        Raw capsule JSON (proof mode)
+    <details>
+      <summary
+        style={{
+          cursor: "pointer",
+          fontSize: "0.75rem",
+          color: "var(--ink-3)",
+          fontFamily: "var(--mono)",
+          padding: "var(--s2) 0",
+        }}
+      >
+        Raw JSON (proof mode)
       </summary>
       <pre
         className="raw-json"
-        style={{ marginTop: 8, maxHeight: 400, overflow: "auto" }}
+        style={{
+          marginTop: "var(--s2)",
+          maxHeight: 360,
+          overflow: "auto",
+          background: "var(--ground-1)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--r2)",
+          padding: "var(--s3)",
+        }}
       >
         {JSON.stringify(cap, null, 2)}
       </pre>

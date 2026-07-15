@@ -3,7 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ReEntry",
-  description: "Return to momentum. A temporal operating system for interrupted knowledge work.",
+  description:
+    "Return to momentum. A temporal operating system for interrupted knowledge work.",
+  openGraph: {
+    title: "ReEntry",
+    description: "Return to momentum.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -14,8 +20,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       {/*
-        No external fonts, CDN scripts, or analytics. The app works fully
-        offline once npm install has run and the FastAPI server is up.
+        No CDN fonts, no analytics, no external scripts.
+        Inter Variable is served from /fonts/InterVariable.woff2.
       */}
       <head />
       <body>{children}</body>

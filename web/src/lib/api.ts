@@ -25,10 +25,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
-export async function getCapsule(projectId?: string): Promise<Capsule> {
-  const q = projectId
-    ? `?project_id=${encodeURIComponent(projectId)}`
-    : "";
+export async function getCapsule(
+  projectId?: string,
+  /** In demo mode: "after" fetches the post-approval snapshot. */
+  demoState?: "after",
+): Promise<Capsule> {
+  const params = new URLSearchParams();
+  if (projectId) params.set("project_id", projectId);
+  if (demoState) params.set("state", demoState);
+  const q = params.size ? `?${params}` : "";
   return request<Capsule>(`/capsule${q}`);
 }
 

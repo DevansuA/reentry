@@ -13,10 +13,11 @@ export function EvidenceChip({ id }: Props) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function handleClick() {
     setOpen(true);
-    if (event) return; // already fetched
+    if (event) return;
     setLoading(true);
     setError(null);
     try {
@@ -29,8 +30,8 @@ export function EvidenceChip({ id }: Props) {
     }
   }
 
-  function handleBackdropClick(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) setOpen(false);
+  function close() {
+    setOpen(false);
   }
 
   const payloadPretty = event
@@ -47,36 +48,81 @@ export function EvidenceChip({ id }: Props) {
       })()
     : null;
 
+  async function handleCopy() {
+    if (!payloadPretty) return;
+    try {
+      await navigator.clipboard.writeText(payloadPretty);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  }
+
   return (
     <>
-      <button className="ev-chip" onClick={handleClick} title="Show ledger event">
-        {id.slice(0, 12)}
+      <button
+        className="ev-chip"
+        onClick={handleClick}
+        title={`Show ledger event ${id}`}
+        aria-label={`Open evidence ${id}`}
+      >
+        {id.slice(0, 10)}
       </button>
 
       {open && (
-        <div className="modal-backdrop" onClick={handleBackdropClick}>
-          <div className="modal" role="dialog" aria-modal="true">
-            <div className="modal-header">
-              <span className="modal-title">ev:{id}</span>
+        <div
+          className="overlay"
+          onClick={(e) => e.target === e.currentTarget && close()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Evidence event ${id}`}
+        >
+          <div className="slide-panel">
+            <div className="slide-header">
+              <span className="slide-title">ev:{id}</span>
               <button
-                className="modal-close"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
+                className="close-btn"
+                onClick={close}
+                aria-label="Close evidence panel"
               >
                 &times;
               </button>
             </div>
 
-            {loading && <p className="dim">Loading...</p>}
-            {error && <p className="result-bad">{error}</p>}
             {event && (
-              <>
-                <div className="stamp">
-                  {event.source} / {event.event_type} &mdash;{" "}
-                  {event.occurred_at.slice(0, 16)}
+              <div className="slide-meta">
+                {event.source} / {event.event_type} &nbsp;·&nbsp;{" "}
+                {event.occurred_at.slice(0, 16).replace("T", " ")}
+              </div>
+            )}
+
+            <div className="slide-body">
+              {loading && (
+                <div>
+                  <div className="loading-skeleton" style={{ height: 16, marginBottom: 8, width: "60%" }} />
+                  <div className="loading-skeleton" style={{ height: 16, marginBottom: 8, width: "80%" }} />
+                  <div className="loading-skeleton" style={{ height: 16, width: "40%" }} />
                 </div>
+              )}
+              {error && (
+                <p style={{ color: "var(--bad)", fontSize: "0.875rem" }}>{error}</p>
+              )}
+              {payloadPretty && (
                 <pre className="raw-json">{payloadPretty}</pre>
-              </>
+              )}
+            </div>
+
+            {payloadPretty && (
+              <div className="slide-footer">
+                <button
+                  className={`copy-btn ${copied ? "copied" : ""}`}
+                  onClick={handleCopy}
+                  aria-label="Copy JSON to clipboard"
+                >
+                  {copied ? "Copied" : "Copy JSON"}
+                </button>
+              </div>
             )}
           </div>
         </div>

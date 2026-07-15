@@ -26,13 +26,13 @@ export function CapsuleItemRow({ item, textClass = "" }: ItemProps) {
             <EvidenceChip key={id} id={id} />
           ))}
         </span>
-        {conf !== null && (
-          <span className="badge">conf {conf.toFixed(1)}</span>
-        )}
+        {conf !== null && <span className="badge">conf {conf.toFixed(1)}</span>}
       </div>
+
       {item.rationale && (
         <div className="item-rationale">why: {item.rationale}</div>
       )}
+
       <div className="item-meta">
         {item.classification && (
           <span className="badge">{item.classification}</span>
@@ -45,23 +45,68 @@ export function CapsuleItemRow({ item, textClass = "" }: ItemProps) {
   );
 }
 
+interface ContradictionPairProps {
+  item: CapsuleItem;
+}
+
+/** Renders a contradiction as a visually distinct paired card. */
+export function ContradictionPair({ item }: ContradictionPairProps) {
+  const ids = item.evidence_ids ?? [];
+  return (
+    <div className="contradiction-pair">
+      {/* Stale / superseded side */}
+      <div className="contradiction-claim stale">
+        {item.text}
+      </div>
+
+      {/* Classification badge + evidence */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        {item.classification && (
+          <span className="badge amber">{item.classification}</span>
+        )}
+        {ids.slice(0, 4).map((id) => (
+          <EvidenceChip key={id} id={id} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface SectionProps {
   title: string;
   items: CapsuleItem[];
   textClass?: string;
+  useContradictionLayout?: boolean;
 }
 
-export function CapsuleSection({ title, items, textClass = "" }: SectionProps) {
+export function CapsuleSection({
+  title,
+  items,
+  textClass = "",
+  useContradictionLayout = false,
+}: SectionProps) {
   if (!items.length) return null;
 
   return (
-    <section className="panel">
-      <h2 className="section-title">{title}</h2>
-      <ul className="item-list">
-        {items.map((item, i) => (
-          <CapsuleItemRow key={i} item={item} textClass={textClass} />
-        ))}
-      </ul>
-    </section>
+    <div className="panel">
+      <div className="panel-header">
+        <p className="panel-label">{title}</p>
+      </div>
+      <div className="panel-body" style={{ padding: "0 var(--s4)" }}>
+        {useContradictionLayout ? (
+          <div>
+            {items.map((item, i) => (
+              <ContradictionPair key={i} item={item} />
+            ))}
+          </div>
+        ) : (
+          <ul className="item-list">
+            {items.map((item, i) => (
+              <CapsuleItemRow key={i} item={item} textClass={textClass} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
