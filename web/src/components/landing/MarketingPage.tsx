@@ -95,6 +95,7 @@ function Hero() {
               width={1280}
               height={900}
               priority
+              sizes="(max-width: 1024px) 100vw, 50vw"
               style={{ width: "100%", height: "auto" }}
             />
           </ScrollReveal>
@@ -213,6 +214,8 @@ function ProductTour() {
                   alt={item.alt}
                   width={1280}
                   height={900}
+                  loading="lazy"
+                  sizes="(max-width: 768px) 100vw, 55vw"
                   style={{ width: "100%", height: "auto" }}
                 />
               </div>

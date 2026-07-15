@@ -19,11 +19,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      {/*
-        No CDN fonts, no analytics, no external scripts.
-        Inter Variable is served from /fonts/InterVariable.woff2.
-      */}
-      <head />
+      <head>
+        {/*
+          Preload the self-hosted variable font so the browser fetches it
+          before parsing the CSS @font-face rule. Eliminates FOIT on LCP.
+          No CDN fonts, no analytics, no external scripts.
+        */}
+        <link
+          rel="preload"
+          href="/fonts/InterVariable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
