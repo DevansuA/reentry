@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Tests and eval
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Core tests
+        run: python3 -m pytest tests -q
+
+      - name: API and MCP tests
+        run: PYTHONPATH=. python3 -m pytest server/tests mcp/tests -q
+
+      - name: Eval (gate exits 1 on regression)
+        run: python3 -m evals.run_eval
+
+      - name: Lint
+        run: make lint
+
+  web:
+    name: Web app build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm --prefix web install
+
+      - name: Build Next.js
+        run: NEXT_TELEMETRY_DISABLED=1 npm --prefix web run build
+
+  vscode:
+    name: VS Code extension compile
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm --prefix vscode-extension install
+
+      - name: Compile extension
+        run: npm --prefix vscode-extension run compile
+
+  style:
+    name: Style greps (em dashes and banned words)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for em dashes and en dashes
+        run: |
+          count=$(grep -rn $'—\|–' \
+            --include="*.md" --include="*.py" --include="*.tsx" --include="*.ts" \
+            . | grep -v ".next/" | grep -v "node_modules/" | grep -v ".pyc" | wc -l)
+          echo "Em/en dash violations: $count"
+          if [ "$count" -gt 0 ]; then
+            grep -rn $'—\|–' \
+              --include="*.md" --include="*.py" --include="*.tsx" --include="*.ts" \
+              . | grep -v ".next/" | grep -v "node_modules/" | grep -v ".pyc"
+            exit 1
+          fi
+
+      - name: Check for banned words
+        run: |
+          count=$(grep -rni \
+            "leverage\|seamless\|robust\|cutting.edge\|revolutionize\|game.changer\|empower\|supercharge\|delve\|it's worth noting\|furthermore\|moreover\|not just.*but\|isn't just\|more than just\|unlock\|elevate" \
+            --include="*.md" --include="*.py" --include="*.tsx" --include="*.ts" \
+            . | grep -v ".next/" | grep -v "node_modules/" | grep -v ".pyc" | wc -l)
+          echo "Banned word violations: $count"
+          if [ "$count" -gt 0 ]; then
+            grep -rni \
+              "leverage\|seamless\|robust\|cutting.edge\|revolutionize\|game.changer\|empower\|supercharge\|delve\|it's worth noting\|furthermore\|moreover\|not just.*but\|isn't just\|more than just\|unlock\|elevate" \
+              --include="*.md" --include="*.py" --include="*.tsx" --include="*.ts" \
+              . | grep -v ".next/" | grep -v "node_modules/" | grep -v ".pyc"
+            exit 1
+          fi
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for secrets (outside redact.py and its tests)
+        run: |
+          count=$(grep -rn \
+            "sk-[A-Za-z0-9]\{20,\}\|ghp_[A-Za-z0-9]\{20,\}\|AKIA[0-9A-Z]\{16\}\|BEGIN PRIVATE KEY\|bearer [A-Za-z0-9]\{20,\}" \
+            --include="*.py" --include="*.ts" --include="*.tsx" --include="*.md" \
+            . \
+            | grep -v "src/reentry/redact.py" \
+            | grep -v "tests/test_reentry.py" \
+            | grep -v "tests/test_calendar_connector.py" \
+            | grep -v "tests/test_connectors.py" \
+            | grep -v "node_modules/" \
+            | grep -v ".next/" \
+            | wc -l)
+          echo "Potential secret hits: $count"
+          if [ "$count" -gt 0 ]; then
+            grep -rn \
+              "sk-[A-Za-z0-9]\{20,\}\|ghp_[A-Za-z0-9]\{20,\}\|AKIA[0-9A-Z]\{16\}\|BEGIN PRIVATE KEY\|bearer [A-Za-z0-9]\{20,\}" \
+              --include="*.py" --include="*.ts" --include="*.tsx" --include="*.md" \
+              . \
+              | grep -v "src/reentry/redact.py" \
+              | grep -v "tests/test_reentry.py" \
+              | grep -v "tests/test_calendar_connector.py" \
+              | grep -v "tests/test_connectors.py" \
+              | grep -v "node_modules/" \
+              | grep -v ".next/"
+            exit 1
+          fi

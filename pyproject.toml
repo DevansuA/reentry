@@ -6,11 +6,38 @@ build-backend = "setuptools.build_meta"
 name = "reentry"
 version = "0.1.0"
 description = "Return to momentum: an event-driven temporal operating system for interrupted knowledge work."
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
+# Core runtime: only click and rich are strictly required for the CLI.
 dependencies = ["click>=8.1", "rich>=13"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+# Full suite: everything except the VS Code extension (that uses npm).
+server  = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+mcp     = ["mcp>=1.0"]
+connectors = ["watchdog>=4.0", "icalendar>=5.0"]
+dev     = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "playwright>=1.40",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "watchdog>=4.0",
+    "icalendar>=5.0",
+    "mcp>=1.0",
+]
+all = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "mcp>=1.0",
+    "watchdog>=4.0",
+    "icalendar>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/DevanshuA09/reentry"
+Repository = "https://github.com/DevanshuA09/reentry"
 
 [project.scripts]
 reentry = "reentry.cli:main"

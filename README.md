@@ -47,6 +47,10 @@ $ reentry demo && reentry resume
 
 The stale note, the contradicting decision, the active blocker, and the appropriate next action were all found deterministically from the ledger. No LLM was involved in producing this output.
 
+![Capsule view in the web app](docs/assets/capsule-view.png)
+
+*Capsule view in the web UI. Evidence chips (cyan) open the raw ledger event behind each claim.*
+
 ## Measured results
 
 | System | Checks passed | Applicable |
@@ -84,6 +88,18 @@ make demo-full                      # seeds demo, starts servers, opens browser
 ```
 
 The web app runs on `http://localhost:3000` and the API on `http://localhost:8000`. Evidence chips in the web UI open the same raw ledger JSON as `reentry evidence`. Approve and Reject buttons go through the same validation path as the CLI.
+
+![Evidence chip modal](docs/assets/evidence-modal.png)
+
+*Clicking an evidence chip opens the raw ledger event JSON proving every claim.*
+
+![Entropy gauge](docs/assets/entropy-gauge.png)
+
+*Entropy gauge with per-factor breakdown. Each row names a concrete cause and the command to reduce it.*
+
+![Pending action panel](docs/assets/action-panel.png)
+
+*The pending action panel. Approve and run sends the exact same request as `reentry approve <id>`.*
 
 ### Real project
 

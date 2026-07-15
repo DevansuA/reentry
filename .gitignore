@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.tox/
+
+# ReEntry runtime files
+~/.reentry/
+*.db
+spool/
+*.cursor
+
+# Node / Next.js / VS Code extension
+node_modules/
+.next/
+out/
+vscode-extension/dist/
+vscode-extension/out/
+# The packaged .vsix is committed so reviewers can install with one command.
+# Do NOT add *.vsix here.
+
+# Scratch directory for screenshot work; committed PNGs live in docs/assets/
+scripts/screenshots-tmp/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Secrets (belt-and-suspenders; redaction handles ingested text)
+*.pem
+*.key

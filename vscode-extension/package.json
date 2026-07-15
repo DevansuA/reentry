@@ -1,0 +1,83 @@
+{
+  "name": "reentry",
+  "displayName": "ReEntry",
+  "description": "Return to momentum. Capsule view, entropy score, and approve actions from VS Code.",
+  "version": "0.1.0",
+  "publisher": "reentry",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevanshuA09/reentry"
+  },
+  "keywords": ["productivity", "context", "temporal", "memory"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "reentry",
+          "title": "ReEntry",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "reentry": [
+        {
+          "type": "webview",
+          "id": "reentry.capsule",
+          "name": "Capsule",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "reentry.refresh",
+        "title": "ReEntry: Refresh capsule"
+      },
+      {
+        "command": "reentry.openCapsule",
+        "title": "ReEntry: Open capsule sidebar"
+      }
+    ],
+    "configuration": {
+      "title": "ReEntry",
+      "properties": {
+        "reentry.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the ReEntry FastAPI server."
+        },
+        "reentry.autoOpenOnIdle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offer to open the capsule when VS Code regains focus after a gap."
+        },
+        "reentry.idleMinutes": {
+          "type": "number",
+          "default": 30,
+          "description": "Minutes of inactivity before offering to open the capsule on focus."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run compile -- --watch",
+    "package": "npm run compile && vsce package --no-dependencies",
+    "test": "node dist/test/runTests.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3",
+    "esbuild": "^0.24",
+    "typescript": "^5"
+  }
+}

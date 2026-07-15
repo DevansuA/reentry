@@ -1,5 +1,5 @@
 .PHONY: setup setup-web test test-server test-all eval demo demo-full \
-        server web-dev web-build lint typecheck
+        server web-dev web-build screenshots lint typecheck
 
 # --- setup ------------------------------------------------------------------
 
@@ -64,6 +64,15 @@ web-dev:
 
 web-build:
 	NEXT_TELEMETRY_DISABLED=1 npm --prefix web run build
+
+# --- screenshots (real, from the running app) --------------------------------
+# Requires: npm --prefix web run build  (done once; builds the Next.js app)
+# Captures to docs/assets/*.png; commit the PNGs after running this.
+
+screenshots:
+	@[ -d web/node_modules ] || $(MAKE) --no-print-directory setup-web
+	@[ -d web/.next ] || $(MAKE) --no-print-directory web-build
+	python3 scripts/screenshots.py
 
 # --- MCP server (stdio transport) -------------------------------------------
 

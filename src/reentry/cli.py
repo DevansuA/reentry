@@ -265,16 +265,109 @@ def dashboard(out):
 
 @cli.command()
 def doctor():
-    """Check the local ReEntry installation."""
+    """Check the local ReEntry installation and all optional surfaces."""
+    import shutil
+    from pathlib import Path as _Path
+
     conn = _conn()
-    console.print(f"DB: {db.db_path()}")
+    ok = True
+
+    def _check(label, value, hint=""):
+        nonlocal ok
+        if value:
+            console.print(f"  [green]✓[/green] {label}")
+        else:
+            ok = False
+            console.print(f"  [red]✗[/red] {label}"
+                          + (f"\n      {hint}" if hint else ""))
+
+    console.print(f"[bold]ReEntry doctor[/bold]\n")
+
+    # --- core ----------------------------------------------------------------
+    console.print("[dim]Core[/dim]")
+    db_p = db.db_path()
+    console.print(f"  DB: {db_p}")
+    _check("DB is writable", os.access(db_p.parent, os.W_OK),
+           f"Run `mkdir -p {db_p.parent}` to create the data directory.")
     n = conn.execute("SELECT COUNT(*) c FROM projects").fetchone()["c"]
-    console.print(f"Projects: {n}")
-    console.print(f"Git available: {gitsource.is_repo('.') or 'not a repo here (ok)'}")
+    console.print(f"  Projects: {n}")
+    _check("Git available", bool(shutil.which("git")),
+           "Install git: https://git-scm.com/")
+
+    # --- optional: web app ---------------------------------------------------
+    console.print("\n[dim]Web app (optional)[/dim]")
+    node_ok = bool(shutil.which("node"))
+    _check("Node.js available", node_ok,
+           "Install Node.js 18+: https://nodejs.org/")
+    web_dir = _Path(__file__).parent.parent.parent / "web"
+    web_built = (web_dir / ".next").is_dir()
+    _check("Next.js built (.next/ present)", web_built,
+           "Run `make web-build` to build the web app.")
+
+    # --- optional: server ----------------------------------------------------
+    console.print("\n[dim]FastAPI server (optional)[/dim]")
+    fastapi_ok = False
+    try:
+        import fastapi  # noqa: F401
+        fastapi_ok = True
+    except ImportError:
+        pass
+    _check("fastapi installed", fastapi_ok,
+           "Run `pip install fastapi uvicorn` to enable the web UI.")
+    uvicorn_ok = bool(shutil.which("uvicorn"))
+    _check("uvicorn on PATH", uvicorn_ok,
+           "Run `pip install uvicorn`.")
+
+    # --- optional: connectors ------------------------------------------------
+    console.print("\n[dim]Connectors (optional)[/dim]")
+    watchdog_ok = False
+    try:
+        import watchdog  # noqa: F401
+        watchdog_ok = True
+    except ImportError:
+        pass
+    _check("watchdog installed (file watcher)", watchdog_ok,
+           "Run `pip install watchdog` to enable `reentry watch`.")
+
+    icalendar_ok = False
+    try:
+        import icalendar  # noqa: F401
+        icalendar_ok = True
+    except ImportError:
+        pass
+    _check("icalendar installed (calendar connector)", icalendar_ok,
+           "Run `pip install icalendar` to enable `reentry sync-calendar`.")
+
+    mcp_ok = False
+    try:
+        from mcp.server.fastmcp import FastMCP  # noqa: F401
+        mcp_ok = True
+    except ImportError:
+        pass
+    _check("mcp installed (MCP server)", mcp_ok,
+           "Run `pip install mcp` to enable the MCP server.")
+
+    spool_dir = db.db_path().parent / "spool"
+    if spool_dir.exists():
+        spool_file = spool_dir / "events.jsonl"
+        n_spool = 0
+        if spool_file.exists():
+            n_spool = sum(1 for _ in spool_file.open())
+        console.print(f"  spool: {spool_dir} ({n_spool} lines pending)")
+    else:
+        console.print("  [dim]spool: not present (no hook activity yet)[/dim]")
+
+    # --- LLM -----------------------------------------------------------------
+    console.print("\n[dim]LLM (optional)[/dim]")
     provider = os.environ.get("REENTRY_LLM_PROVIDER", "none")
-    console.print(f"LLM provider: {provider} "
-                  f"({'configured' if provider != 'none' else 'deterministic mode'})")
-    console.print("[green]✓ ok[/green]")
+    console.print(f"  provider: {provider} "
+                  f"({'configured' if provider != 'none' else 'deterministic mode (default)'})")
+
+    console.print()
+    if ok:
+        console.print("[green]✓ all checks passed[/green]")
+    else:
+        console.print("[yellow]some optional components are missing (see hints above)[/yellow]")
 
 
 @cli.command()
@@ -332,6 +425,34 @@ def sync_github(repo):
         console.print("[dim]No new events (offline or already up to date).[/dim]")
     else:
         console.print(f"[green]✓[/green] Ingested {n} GitHub event(s) for {detected}.")
+
+
+@cli.command("sync-calendar")
+@click.argument("source")
+def sync_calendar(source):
+    """Ingest calendar events from a local .ics file or private ICS URL.
+
+    SOURCE is a file path (~/calendar.ics) or an HTTPS URL to a private
+    ICS feed. Events with deadline-like summaries become deadline claims;
+    all text is redacted before ingestion.
+    """
+    from .connectors import calendar_ics as cal
+    conn = _conn()
+    p = _project_or_die(conn)
+    try:
+        n = cal.sync_calendar(conn, p, source)
+    except FileNotFoundError:
+        console.print(f"[red]File not found: {source}[/red]")
+        console.print("Run with a valid .ics path or a private calendar URL.")
+        raise SystemExit(1)
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]Could not read calendar: {exc}[/red]")
+        console.print("Make sure the source is a valid .ics file or URL.")
+        raise SystemExit(1)
+    if n == 0:
+        console.print("[dim]No new calendar events (already up to date or empty feed).[/dim]")
+    else:
+        console.print(f"[green]✓[/green] Ingested {n} calendar event(s).")
 
 
 @cli.group("hook")

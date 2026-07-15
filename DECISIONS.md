@@ -69,8 +69,36 @@ causing `from mcp.server.fastmcp import FastMCP` to resolve to our own
 package) fixes import resolution. The `reentry` package is already installed
 via `pip install -e .` so no `sys.path` manipulation is needed in the server.
 
-**D13: Screenshots deferred to post-first-run.** The brief asks for web app
-screenshots in `docs/assets/` taken from the running app. These require a
-browser and a running server, which are not available in the build environment.
-A reviewer can generate them by running `make demo-full`, which opens the
-browser. The README describes this step explicitly.
+**D13: Screenshots captured with Playwright headless Chromium.** A Python
+script (`scripts/screenshots.py`) seeds the demo, starts both servers,
+captures five PNG files at 2x device scale ratio to `docs/assets/`, and shuts
+the servers down. Run with `make screenshots`. The PNGs are committed so
+reviewers see them without running the servers again; re-run the script to
+update them after UI changes.
+
+**D14: Calendar connector is ICS-first, not Google OAuth.** Full OAuth for
+Google Calendar requires a client-id registration flow, token storage with
+encryption at rest, and metadata leaving the machine to Google's servers on
+every sync. For a local-first tool that goal conflicts with the threat model's
+privacy posture, especially before per-source retention controls exist (see
+THREAT_MODEL.md T3). All major calendar apps export a private ICS URL or file;
+ICS gives the same temporal data without any OAuth surface. The Google OAuth
+variant is documented in CONNECTORS.md as the intended follow-up once retention
+controls ship.
+
+**D15: MIT license.** No proprietary dependencies; MIT is the least-friction
+choice for a tool aimed at individual developers and potential contributors.
+The license file is in the repo root and referenced from pyproject.toml.
+
+**D16: Gmail stays deferred.** Email is the highest-risk Tier 1 source (T3).
+Building it now, before per-source retention controls and stronger entropy-based
+redaction, would violate the threat model's spirit. The connector design is
+documented in CONNECTORS.md; the implementation waits on those prerequisites.
+
+**D17: VS Code extension produces a real .vsix.** The extension compiles with
+esbuild and packages with vsce. It is a thin client of the FastAPI server; no
+capsule logic is duplicated. The approve/reject path goes through the same
+server endpoints (and the same allow-list check) as the web UI and CLI. A test
+at the API layer verifies the allow-list fires even for direct bypass attempts.
+The .vsix is committed at `vscode-extension/reentry-0.1.0.vsix` for
+one-command install: `code --install-extension vscode-extension/reentry-0.1.0.vsix`.

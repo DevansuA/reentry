@@ -12,7 +12,8 @@ concrete rather than vaporware.
 | Terminal (hook) | ✅ Implemented | Opt-in zsh/bash hook; spool + `reentry ingest-spool` |
 | Filesystem (watcher) | ✅ Implemented | `reentry watch`; path+timestamp only, no contents |
 | GitHub (PRs/issues) | ✅ Implemented | Read-only REST polling; `reentry sync-github` |
-| Calendar | ⛔ Not built | Design below |
+| Calendar (ICS) | ✅ Implemented | `reentry sync-calendar path.ics`; local/private-URL ICS |
+| Calendar (Google OAuth) | ⛔ Not built | Deferred; design below |
 | Gmail | ⛔ Not built | Deliberately last (highest privacy risk) |
 
 ## Implemented
@@ -86,12 +87,26 @@ already supports `source_event_id` dedup, so this slots in). Review comments
 feed the contradiction rules: an approved review is evidence against a
 "waiting on review" blocker, exactly like R3's passing test. Built.
 
-### Calendar
+### Calendar (ICS, local-first)
 
-Read-only free/busy plus event titles matched to project names. Purpose is
-twofold: deadline evidence for R4 (deadline drift), and interruption
-detection (a 2-hour meeting block explains a gap better than the 4-hour
-inactivity heuristic).
+`src/reentry/connectors/calendar_ics.py`. Reads a local .ics file or a
+private ICS URL (most calendar apps export one: Apple Calendar, Google
+Calendar, Outlook, Fastmail all support this). Idempotent by VEVENT UID.
+Redaction runs before append. Events with deadline-like summaries (contains
+"deadline", "due", "submit", "review", etc.) become deadline claims feeding
+rule R4 (deadline drift). Ingested via `reentry sync-calendar path-or-url.ics`.
+Injection test: a malicious SUMMARY field is confirmed to be stored as data
+and never reach execution (`test_injection_in_summary_never_executes`).
+
+### Calendar (Google OAuth, deferred)
+
+Full Google Calendar OAuth requires a client-id flow, token storage, and
+metadata leaving the machine to Google's servers. For a local-first tool
+the privacy cost exceeds the convenience gain before per-source retention
+controls and stronger redaction exist (see THREAT_MODEL.md T3 and DECISIONS.md
+D14). The ICS export path gives the same temporal data without any OAuth
+surface. When retention controls ship, the OAuth connector is a natural next
+step.
 
 ### Gmail
 
