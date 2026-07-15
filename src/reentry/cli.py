@@ -295,6 +295,78 @@ def demo(target):
                   "`reentry approve <id>`, `reentry dashboard`.")
 
 
+@cli.command("ingest-spool")
+def ingest_spool():
+    """Read the terminal spool and append new events to the ledger."""
+    from .connectors import terminal as term
+    conn = _conn()
+    p = _project_or_die(conn)
+    n = term.ingest_spool(conn, p)
+    console.print(f"[green]✓[/green] Ingested {n} new event(s) from spool.")
+
+
+@cli.command("watch")
+def watch_cmd():
+    """Watch the project directory for file-save events (runs until Ctrl+C)."""
+    from .connectors import fs_watcher
+    conn = _conn()
+    p = _project_or_die(conn)
+    console.print(f"Watching {p['root_path']} — Ctrl+C to stop.")
+    fs_watcher.watch(p)
+
+
+@cli.command("sync-github")
+@click.option("--repo", default=None,
+              help="GitHub owner/repo slug. Detected from git remote if absent.")
+def sync_github(repo):
+    """Poll GitHub events for the current repository and ingest new ones."""
+    from .connectors import github as gh
+    conn = _conn()
+    p = _project_or_die(conn)
+    detected = repo or gh.detect_repo(p["root_path"])
+    if not detected:
+        console.print("[yellow]No GitHub remote detected. Pass --repo owner/repo.[/yellow]")
+        raise SystemExit(1)
+    n = gh.sync_github(conn, p, repo=detected)
+    if n == 0:
+        console.print("[dim]No new events (offline or already up to date).[/dim]")
+    else:
+        console.print(f"[green]✓[/green] Ingested {n} GitHub event(s) for {detected}.")
+
+
+@cli.group("hook")
+def hook_group():
+    """Manage shell hooks for automatic terminal capture."""
+
+
+@hook_group.command("install")
+@click.option("--shell", default=None,
+              help="Shell type: zsh or bash (auto-detected if absent).")
+def hook_install(shell):
+    """Print the line to add to your shell profile for opt-in capture."""
+    import os
+    from pathlib import Path
+    hooks_dir = Path(__file__).parent.parent.parent.parent / "hooks"
+    if not hooks_dir.exists():
+        hooks_dir = Path(os.environ.get("REENTRY_HOOKS_DIR", "hooks"))
+
+    if not shell:
+        shell = os.environ.get("SHELL", "").split("/")[-1]
+
+    if shell == "zsh":
+        hook = hooks_dir / "reentry.zsh"
+        rc = "~/.zshrc"
+    else:
+        hook = hooks_dir / "reentry.bash"
+        rc = "~/.bashrc"
+
+    console.print(f"Add this line to [bold]{rc}[/bold]:")
+    console.print(f"\n    source {hook}\n")
+    console.print("Then restart your shell or run:")
+    console.print(f"    source {hook}")
+    console.print("\nUse [bold]reentry ingest-spool[/bold] to import captured commands.")
+
+
 def main():
     cli()
 

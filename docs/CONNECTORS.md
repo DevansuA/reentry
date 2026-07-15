@@ -8,9 +8,10 @@ concrete rather than vaporware.
 | Connector | Status | Notes |
 |---|---|---|
 | Git (local) | ✅ Implemented | Read-only, allow-listed subcommands |
-| Filesystem (manual) | ✅ Partial | Notes/files enter via CLI commands; no watcher |
-| Terminal | ⛔ Not built | Design below |
-| GitHub (PRs/issues) | ⛔ Not built | Design below |
+| Filesystem (manual) | ✅ Partial | Notes/files enter via CLI commands |
+| Terminal (hook) | ✅ Implemented | Opt-in zsh/bash hook; spool + `reentry ingest-spool` |
+| Filesystem (watcher) | ✅ Implemented | `reentry watch`; path+timestamp only, no contents |
+| GitHub (PRs/issues) | ✅ Implemented | Read-only REST polling; `reentry sync-github` |
 | Calendar | ⛔ Not built | Design below |
 | Gmail | ⛔ Not built | Deliberately last (highest privacy risk) |
 
@@ -35,9 +36,41 @@ Notes, decisions, blockers, and questions enter through `reentry note/decide/
 block/question`. There is no file watcher; "partial" means the ingestion and
 reconciliation pipeline is fully built, but capture is user-initiated.
 
+## Implemented (Milestone 3)
+
+### Terminal hook
+
+`src/reentry/connectors/terminal.py`. Opt-in zsh and bash hooks
+(`hooks/reentry.zsh`, `hooks/reentry.bash`) capture command, exit code, and
+duration — not stdout/stderr by default. Redaction runs twice: once in the
+shell hook before writing to the spool, and once again in `ingest_spool`
+before appending to the ledger. A planted prompt-injection string in a
+captured command is tested to confirm it is stored as data and cannot reach
+`actions.execute` (`test_terminal_injection_never_executes`).
+
+Failed commands matching test-runner prefixes (pytest, npm test, make test,
+etc.) auto-create an inferred blocker, which then feeds rule R3: a later
+passing `test_run` event for the same command resolves the blocker.
+
+### Filesystem watcher
+
+`src/reentry/connectors/fs_watcher.py`. Watchdog-based observer that records
+save and create events (path and timestamp only, never contents) into the
+ledger. Ignores `__pycache__`, `.git`, `node_modules`, and binary suffixes.
+Run with `reentry watch`. Gives the 4-hour inactivity heuristic real signal.
+
+### GitHub connector
+
+`src/reentry/connectors/github.py`. Polls the GitHub REST API events endpoint
+(`GET /repos/{owner}/{repo}/events`) and ingests events as ledger rows,
+idempotent by `github:{event_id}`. Detects the repo slug from the git remote
+URL. Unauthenticated for public repos; set `REENTRY_GITHUB_TOKEN` for private
+repos. Degrades gracefully offline (returns 0, no exception). All payload text
+passes through `redact.py` before `append_event`.
+
 ## Not built — intended designs
 
-### Terminal capture
+### Terminal capture (pre-existing design, now superseded above)
 
 Highest-value missing connector: failed commands and error output are the
 raw material of blockers. Intended design: an opt-in shell hook (zsh
