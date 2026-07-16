@@ -39,8 +39,15 @@ export function getEvents(): LedgerEvent[] {
 }
 
 export function getEvidence(eventId: string): LedgerEvent | null {
-  const ev = (snapshot.before.evidence as Record<string, unknown>)[eventId];
-  return (ev as LedgerEvent) ?? null;
+  const evDict = snapshot.before.evidence as Record<string, unknown>;
+  // Exact match first.
+  if (evDict[eventId]) return evDict[eventId] as LedgerEvent;
+  // Prefix search: handles any truncation discrepancy between capsule claim
+  // evidence_ids and the keys stored in the evidence map.
+  const key = Object.keys(evDict).find(
+    (k) => k.startsWith(eventId) || eventId.startsWith(k),
+  );
+  return key ? (evDict[key] as LedgerEvent) : null;
 }
 
 export function getProjects(): { id: string; name: string; root_path: string }[] {

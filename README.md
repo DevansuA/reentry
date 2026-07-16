@@ -152,14 +152,16 @@ See `ARCHITECTURE.md` for the full design and `docs/THREAT_MODEL.md` for the sec
 - 16-command CLI.
 - Self-contained HTML dashboard (no CDN).
 - FastAPI server (`server/`) with 9 endpoints and an approve/reject UI surface.
-- Next.js web app (`web/`) preserving the visual identity (slate ground, avionics amber, phosphor cyan evidence chips). Works offline against the local DB; no CDN dependencies at runtime.
+- Next.js web app (`web/`) with a commercial dark design (near-black ground, phosphor cyan accent, Inter Variable typeface). Works against the local FastAPI server or the hosted Vercel demo. No CDN dependencies at runtime.
 - MCP server (`mcp/server.py`) exposing 5 read/propose tools. No approve or execute tool exists on the MCP surface; that step is human-only.
 - Terminal hook connector (opt-in zsh/bash) with spool-based ingestion and double-pass redaction.
 - Filesystem watcher connector using watchdog (path and timestamp only, never contents).
 - GitHub connector: read-only REST polling, idempotent by event id, approved reviews resolve "waiting on review" blockers.
-- 66 unit/integration tests (19 core + 14 connector + 10 MCP + 13 API + 10 GitHub).
+- Calendar connector (ICS): `reentry sync-calendar path-or-url.ics`; idempotent by VEVENT UID; deadline summaries feed rule R4.
+- VS Code extension: sidebar capsule panel, status-bar entropy, approve/reject from the editor. Packaged as `vscode-extension/reentry-0.1.0.vsix`.
+- 81 tests (53 core/connector + 18 API + 10 MCP).
 
-**Not implemented** (designed, not built): VS Code extension, Calendar connector, Gmail connector, embeddings layer, per-source retention controls, multi-user support. Each has a design sketch in `docs/CONNECTORS.md` and `ROADMAP.md`. No stub pretends to be live.
+**Not implemented** (designed, not built): Gmail connector, embeddings layer, per-source retention controls, multi-user support. Each has a design sketch in `docs/CONNECTORS.md` and `ROADMAP.md`. No stub pretends to be live.
 
 ## Privacy and security
 
@@ -173,11 +175,11 @@ See `ARCHITECTURE.md` for the full design and `docs/THREAT_MODEL.md` for the sec
 ## Development
 
 ```bash
-make setup       # Python deps (also: pip install -e . fastapi uvicorn mcp watchdog)
+make setup       # Python deps (also: pip install -e . fastapi uvicorn mcp watchdog icalendar)
 make setup-web   # Node deps (npm --prefix web install)
-make test        # 33 Python tests
-make test-server # 13 API tests (needs PYTHONPATH=.)
-make test-all    # all 56 Python tests
+make test        # 53 Python tests (core + connectors)
+make test-server # 18 API tests (needs PYTHONPATH=.)
+make test-all    # all 81 Python tests
 make eval        # benchmark, regenerates docs/EVAL_RESULTS.md
 make demo        # fresh seeded CLI demo
 make demo-full   # seeds + starts both servers + opens browser
@@ -186,4 +188,4 @@ make web-dev     # Next.js dev server on :3000
 make lint        # compileall + pyflakes
 ```
 
-**Python 3.10 or later required.** Node 18 or later for the web app. Only `click` and `rich` are required for the CLI; all other deps (`fastapi`, `uvicorn`, `watchdog`, `mcp`) are optional and needed only for the features that use them.
+**Python 3.10 or later required.** Node 18 or later for the web app. Only `click` and `rich` are required for the CLI; all other deps (`fastapi`, `uvicorn`, `watchdog`, `mcp`, `icalendar`) are optional and needed only for the features that use them.

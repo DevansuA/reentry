@@ -60,6 +60,46 @@ evidence_map: dict = {}
 for ev in events_before:
     evidence_map[ev["id"]] = dict(ev)
 
+# The capsule may reference event IDs that are not in the main events list
+# (e.g. checkpoint events created by infer_checkpoint_if_stale). Fetch those
+# directly from the DB so every chip on the UI can open its evidence panel.
+_capsule_dict = dict(cap_before)
+_referenced: set[str] = set()
+for _section_key in ["objective", "where_things_stand", "what_changed",
+                      "decisions", "blockers", "contradictions", "deadlines",
+                      "next_action"]:
+    _val = _capsule_dict.get(_section_key)
+    _items = _val if isinstance(_val, list) else ([_val] if _val else [])
+    for _item in _items:
+        for _eid in (_item.get("evidence_ids") or [] if isinstance(_item, dict) else []):
+            _referenced.add(_eid)
+
+for _eid in _referenced - set(evidence_map):
+    # Try events table first, then checkpoints table.
+    _row = conn.execute("SELECT * FROM events WHERE id = ?", (_eid,)).fetchone()
+    if _row:
+        evidence_map[_eid] = dict(_row)
+        continue
+    _row = conn.execute("SELECT * FROM checkpoints WHERE id = ?", (_eid,)).fetchone()
+    if _row:
+        # Normalise checkpoint to the same shape the UI expects for evidence.
+        _cp = dict(_row)
+        evidence_map[_eid] = {
+            "id": _cp["id"],
+            "project_id": _cp["project_id"],
+            "session_id": _cp["session_id"],
+            "source": "checkpoint",
+            "source_event_id": None,
+            "event_type": "checkpoint",
+            "occurred_at": _cp["created_at"],
+            "ingested_at": _cp["created_at"],
+            "actor": None,
+            "payload": _cp["summary"],
+            "content_hash": None,
+            "sensitivity": "normal",
+            "supersedes": None,
+        }
+
 # --- approve the proposed action and re-run --------------------------------
 action_taken = None
 cap_after = cap_before

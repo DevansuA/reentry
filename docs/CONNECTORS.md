@@ -69,6 +69,19 @@ URL. Unauthenticated for public repos; set `REENTRY_GITHUB_TOKEN` for private
 repos. Degrades gracefully offline (returns 0, no exception). All payload text
 passes through `redact.py` before `append_event`.
 
+## Implemented (Milestone 5)
+
+### Calendar (ICS, local-first)
+
+`src/reentry/connectors/calendar_ics.py`. Reads a local .ics file or a
+private ICS URL (most calendar apps export one: Apple Calendar, Google
+Calendar, Outlook, Fastmail all support this). Idempotent by VEVENT UID.
+Redaction runs before append. Events with deadline-like summaries (contains
+"deadline", "due", "submit", "review", etc.) become deadline claims feeding
+rule R4 (deadline drift). Ingested via `reentry sync-calendar path-or-url.ics`.
+Injection test: a malicious SUMMARY field is confirmed to be stored as data
+and never reach execution (`test_injection_in_summary_never_executes`).
+
 ## Not built: intended designs
 
 ### Terminal capture (superseded by the Milestone 3 implementation above)
@@ -86,17 +99,6 @@ repo, ingested as ledger events (idempotent by GitHub event id; the ledger
 already supports `source_event_id` dedup, so this slots in). Review comments
 feed the contradiction rules: an approved review is evidence against a
 "waiting on review" blocker, exactly like R3's passing test. Built.
-
-### Calendar (ICS, local-first)
-
-`src/reentry/connectors/calendar_ics.py`. Reads a local .ics file or a
-private ICS URL (most calendar apps export one: Apple Calendar, Google
-Calendar, Outlook, Fastmail all support this). Idempotent by VEVENT UID.
-Redaction runs before append. Events with deadline-like summaries (contains
-"deadline", "due", "submit", "review", etc.) become deadline claims feeding
-rule R4 (deadline drift). Ingested via `reentry sync-calendar path-or-url.ics`.
-Injection test: a malicious SUMMARY field is confirmed to be stored as data
-and never reach execution (`test_injection_in_summary_never_executes`).
 
 ### Calendar (Google OAuth, deferred)
 

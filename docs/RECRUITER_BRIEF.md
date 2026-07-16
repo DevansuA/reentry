@@ -35,10 +35,12 @@ interpretation, 120 s timeout, 4 KB output cap.
 reached via the web UI goes through the exact same allow-list and metacharacter
 checks as the CLI.
 
-**Next.js web app** (`web/`). Visual identity preserved (slate ground,
-avionics amber, phosphor cyan evidence chips). No CDN at runtime. Evidence
-chips open raw ledger JSON in a modal. Approve/Reject buttons in the action
-panel.
+**Next.js web app** (`web/`). Commercial dark design: near-black ground,
+phosphor cyan accent, self-hosted Inter Variable typeface. No CDN at runtime.
+Evidence chips open raw ledger JSON in a slide panel. Approve/Reject buttons
+in the action panel. Hosted demo at
+[web-ten-theta-37.vercel.app](https://web-ten-theta-37.vercel.app) (Lighthouse
+90/96/96 on performance/accessibility/best-practices).
 
 **MCP server** (`mcp/server.py`). Five read/propose tools. No approve or
 execute tool exists on the surface; that step is human-only. Tested explicitly.
@@ -52,6 +54,14 @@ feeding rule R3.
 **GitHub connector.** Read-only REST polling, idempotent by event id;
 approved PR reviews resolve "waiting on review" blockers; degrades offline.
 
+**Calendar connector (ICS).** `reentry sync-calendar path-or-url.ics`;
+idempotent by VEVENT UID; deadline-like summaries become deadline claims
+feeding rule R4; injection test proves malicious SUMMARY is stored as data.
+
+**VS Code extension.** Sidebar capsule panel, status-bar entropy score,
+idle-time detection, approve/reject via server API. Compiled with esbuild,
+packaged as `vscode-extension/reentry-0.1.0.vsix`; install with one command.
+
 **Optional LLM polish** off by default; structurally prevented from adding
 facts (containment check and deterministic fallback).
 
@@ -61,8 +71,9 @@ facts (containment check and deterministic fallback).
 pip install -e .
 reentry demo        # seeded project with 4 planted traps
 reentry resume      # watch it flag the stale note and catch the uncaptured fix
-make test           # 33/33 passing (core + connectors)
-PYTHONPATH=. make test-server   # 13/13 API tests
+make test           # 53 passing (core + connectors)
+PYTHONPATH=. make test-server   # 18 API tests
+make test-all       # 81 total
 make eval           # regenerates numbers below, exits 1 on regression
 ```
 
@@ -94,10 +105,9 @@ execution. Full analysis in `docs/THREAT_MODEL.md`.
 
 ## What is not built
 
-No VS Code extension, Calendar connector, Gmail connector, embeddings layer, or
-multi-user support. Each has a concrete design in `docs/CONNECTORS.md` and
-`ROADMAP.md`, and the scope decision is documented in `DECISIONS.md` D1. No
-stub pretends to be live.
+No Gmail connector, embeddings layer, or multi-user support. Each has a
+concrete design in `docs/CONNECTORS.md` and `ROADMAP.md`. No stub pretends
+to be live.
 
 ## Why this slice, in one sentence
 
